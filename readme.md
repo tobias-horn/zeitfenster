@@ -1,7 +1,5 @@
 # CampusConnect
 
-![CampusConnect Logo](https://github.com/tobias-horn/campusConnect/blob/main/static/assets/logo.png)
-
 **CampusConnect** is an information display system designed for students, providing real-time updates on weather, canteen menus, and public transportation schedules. Hosted on a Raspberry Pi, CampusConnect serves as a centralized info screen to keep students informed and organized throughout their campus life.
 
 ## Table of Contents
@@ -30,7 +28,7 @@
 
 ## Demo
 
-![CampusConnect Screenshot](https://github.com/tobias-horn/campusConnect/blob/main/assets/screenshot.png)
+![CampusConnect Screenshot](https://github.com/tobias-horn/campusConnect/blob/main/static/assets/screenshot.png)
 
 ## Technologies Used
 
