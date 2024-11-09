@@ -1,0 +1,8 @@
+# Virtual environment
+env/
+
+# Python cache
+__pycache__/
+
+# IDE specific files
+.vscode/

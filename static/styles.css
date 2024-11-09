@@ -1,0 +1,189 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    color: #333;
+    background-color: #F5F6FA;
+}
+
+h1 {
+    color: #2c3e50;
+}
+
+h2 {
+    color: #34495e;
+    margin-top: 10px;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+li {
+    background-color: #ecf0f1;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+strong {
+    font-size: 1.2em;
+}
+
+em {
+    color: #7f8c8d;
+}
+
+/* MVG TRANSPORT DISPLAY */
+
+.mvv-monitor-footer {
+    display: none;
+}
+
+.mvv-monitor-copyright {
+    display: none;
+}
+
+.first-row th:nth-child(3),
+.mvv-monitor-departures-tbody td:nth-child(3) {
+    display: none;
+}
+
+.mvv-monitor-departures table {
+    width: 100% !important;
+}
+
+/* New styles for table column width adjustment */
+.mvv-departure-left {
+    padding-right: 15px; 
+    white-space: nowrap; 
+
+}
+
+td, th {
+    width: max-content !important; 
+    padding-right: 15px; 
+}
+
+table thead .first-row {
+    border-top: none;
+    border-bottom: 2px solid #00355c;
+}
+
+table .mvv-monitor-departures-tbody tr {
+    border-top: 2px solid #00365c67;
+}
+
+.mvv-monitor-departures-tbody::before {
+    display: none !important;
+}
+
+.mvv-monitor-header-container {
+    display: none;
+}
+
+.mvv-monitor-container .mvv-monitor-departures {
+    border: none !important;
+    min-width: none !important;
+    padding: 0px !important;
+}
+
+.wrapper {
+    display: flex;
+    gap: 20px;
+}   
+
+/* DASHBOARD HEADER STYLES */
+
+header {
+    display: flex;
+    
+    justify-content: space-between;
+    background-color: white;
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.logo {
+    max-width: 250px;
+  }
+
+.current-temperature {
+    font-size: 3em;
+    font-weight: bold;
+}
+
+.max-min-wrapper {
+    display: flex;
+    gap: 10px;
+}
+
+/* TIME DISPLAY */
+
+.blinking-colon {
+    animation: blink 1s steps(2, start) infinite;
+  }
+  
+  @keyframes blink {
+    0%, 100% {
+      color: black;
+    }
+    50% {
+      color: lightgray;
+    }
+  }
+
+
+/* DASHBOARD STYLES */
+
+
+.wrapper-canteen {
+    flex: 10;
+    background-color: white;
+    padding: 15px;
+    border-radius: 15px;
+}
+
+.wrapper-transport {
+    flex: 1;
+    padding: 15px;
+    background-color: white;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+
+/* CANTEEN STYLES */
+
+.dish-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive columns */
+    gap: 20px;
+}
+
+.dish-box {
+    background-color: #EFFAFF;
+    padding: 15px;
+    border-radius: 20px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.dish-title {
+    font-weight: bold;
+    white-space: nowrap;       
+    overflow: hidden;          
+    text-overflow: ellipsis;   
+    max-width: 100%;           
+    display: block;            
+}
+
+
+
+  

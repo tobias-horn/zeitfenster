@@ -1,0 +1,36 @@
+<!-- templates/base.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Information System{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header>
+        <div class="logo-wrapper">
+            <img src="{{ url_for('static', filename='/assets/logo.png') }}" alt="Campus Connect Logo" class="logo"><br>
+            <em id="current-time"></em>
+        </div>
+        
+        <div class="weather-wrapper">
+            <h3>Aktuelles Wetter in München</h3>
+            <div class="data-wrapper">
+                <span class="current-temperature" id="current-temperature"></span>
+                <div class="max-min-wrapper">
+                    <p id="max-temperature"></p>
+                    <p id="min-temperature"></p>
+                </div>
+            </div>
+        </div>
+    </header>
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Include your JavaScript file -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

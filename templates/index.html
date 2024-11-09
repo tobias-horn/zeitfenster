@@ -1,0 +1,16 @@
+<!-- templates/index.html -->
+
+{% extends "base.html" %}
+
+{% block title %}Welcome to the Information System{% endblock %}
+
+{% block content %}
+
+
+
+    <!-- Include the canteen functionality -->
+    <div class="wrapper">
+        {% include 'transport.html' %}
+        {% include 'canteen.html' %}
+    </div>
+{% endblock %}
