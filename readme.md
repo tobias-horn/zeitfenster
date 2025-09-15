@@ -111,17 +111,16 @@ Once the application is running, CampusConnect will display:
 
 ### Kindle Image-Push Mode
 
-For e‑ink Kindles, the app exposes a PNG snapshot endpoint that renders the dashboard server-side using a headless browser. This is ideal for devices that periodically download and display a static image.
+For e‑ink Kindles, use the PNG snapshot endpoint that renders the standard dashboard server‑side. No special HTML parameters are needed.
 
 - Endpoint: `/image-push.png`
-- Query parameters (forwarded to the dashboard):
+- Query parameters (forwarded to dashboard):
   - `station`: MVG station name or id (required)
   - `canteen`: canteen key (required)
   - `show_prices`: `1`/`0` (default `1`)
-  - `types`: comma-separated transport types (e.g. `U-Bahn,Bus`)
+  - `types`: comma-separated transport types (e.g. `UBAHN,BUS`)
   - `limit`, `offset`: paging for departures
-  - `device`: automatically forced to `kindle` when rendering the image
-  - `orientation`: `landscape` (800×600) or `portrait` (600×800), default `landscape`
+  - `orientation`: `landscape` (800×600) or `portrait` (600×800) for the image size
   - `token`: optional security token (see below)
 
 Example:
@@ -136,7 +135,7 @@ Notes on Playwright:
 
 - The endpoint uses Playwright to render the page and take a screenshot.
 - Locally: `pip install -r requirements.txt` then `python -m playwright install chromium` to install the browser.
-- On servers like Heroku, ensure Playwright dependencies and Chromium are available. You may need an additional buildpack for system libs or run `python -m playwright install chromium` during build/startup. If that’s not feasible, consider caching the image and refreshing it less frequently.
+- Heroku: the `Procfile` runs `python -m playwright install chromium` on boot so Chromium is available. If you see missing‑library errors, add a Playwright/Chromium buildpack to provide system dependencies.
 
 ## API Integrations
 

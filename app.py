@@ -28,14 +28,6 @@ def index():
     show_prices_param = (request.args.get('show_prices') or '1').lower()
     show_prices = show_prices_param not in ('0', 'false', 'no')
 
-    # Device and orientation support (for Kindle rendering)
-    device = (request.args.get('device') or '').strip().lower()
-    orientation = (request.args.get('orientation') or 'landscape').strip().lower()
-    if orientation == 'potrait':
-        orientation = 'portrait'
-    if orientation not in ('landscape', 'portrait'):
-        orientation = 'landscape'
-
     # Get the current time and date in the desired formats
     current_time = datetime.datetime.now().strftime("%H:%M")
     current_date = datetime.datetime.now().strftime("%d.%m.%Y")
@@ -46,8 +38,6 @@ def index():
         time=current_time,
         date=current_date,
         show_prices=show_prices,
-        device=device,
-        orientation=orientation,
     )
 
     if canteen_data:
@@ -134,7 +124,7 @@ def _render_dashboard_png(url: str, width: int, height: int) -> bytes:
         raise RuntimeError('Playwright is not installed. Add "playwright" to requirements and install browsers.')
     with sync_playwright() as p:
         # Try to launch Chromium; rely on Playwright-managed browser
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(args=["--no-sandbox", "--disable-setuid-sandbox"], headless=True)
         page = browser.new_page(
             viewport={"width": width, "height": height},
             device_scale_factor=1,
@@ -171,8 +161,6 @@ def image_push():
         'types': request.args.get('types', ''),
         'limit': request.args.get('limit', '4'),
         'offset': request.args.get('offset', '0'),
-        'device': 'kindle',
-        'orientation': orientation,
     }
     # Build absolute dashboard URL
     dash_url = url_for('index', _external=True) + '?' + urlencode(forward_params)
