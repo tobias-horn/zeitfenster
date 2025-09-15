@@ -27,59 +27,7 @@ strong {
 
 em { color: #555; }
 
-/* MVG TRANSPORT DISPLAY */
-
-.mvv-monitor-footer {
-    display: none;
-}
-
-.mvv-monitor-copyright {
-    display: none;
-}
-
-.first-row th:nth-child(3),
-.mvv-monitor-departures-tbody td:nth-child(3) {
-    display: none;
-}
-
-.mvv-monitor-departures table {
-    width: 100% !important;
-}
-
-/* New styles for table column width adjustment */
-.mvv-departure-left {
-    padding-right: 15px; 
-    white-space: nowrap; 
-
-}
-
-td, th {
-    width: max-content !important; 
-    padding-right: 15px; 
-}
-
-table thead .first-row {
-    border-top: none;
-    border-bottom: 2px solid #00355c;
-}
-
-table .mvv-monitor-departures-tbody tr {
-    border-top: 2px solid #00365c67;
-}
-
-.mvv-monitor-departures-tbody::before {
-    display: none !important;
-}
-
-.mvv-monitor-header-container {
-    display: none;
-}
-
-.mvv-monitor-container .mvv-monitor-departures {
-    border: none !important;
-    min-width: none !important;
-    padding: 0px !important;
-}
+/* Removed legacy MVV embed styles */
 
 /* Dashboard grid: top banner, then weather + transport, then full-width canteen */
 .dashboard-grid {
@@ -228,4 +176,3 @@ table .mvv-monitor-departures-tbody tr {
 }
 .setup .setup-container { width: 100%; max-width: 600px; }
 .setup .setup-tile { max-width: 600px; margin: 0 auto; }
-

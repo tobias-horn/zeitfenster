@@ -94,15 +94,10 @@ function updateTransport() {
 
             renderRows(data.first, firstBody);
 
-            const legacy = document.getElementById('legacy-embed');
-            if (legacy) {
-                legacy.style.display = hasData ? 'none' : 'block';
-            }
+            // No legacy embed fallback
         })
         .catch(err => {
             console.error('Transport fetch failed', err);
-            const legacy = document.getElementById('legacy-embed');
-            if (legacy) legacy.style.display = 'block';
         });
 }
 

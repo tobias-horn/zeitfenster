@@ -5,7 +5,6 @@ from canteen_data import get_todays_menu, get_canteen_name, list_canteens  # Imp
 from weather import get_weather_data
 from transport import get_departures_for_station
 import datetime
-import config
 
 app = Flask(__name__)
 
@@ -31,10 +30,6 @@ def index():
         time=current_time,
         date=current_date,
         show_prices=show_prices,
-        first_monitor_label=config.FIRST_MONITOR_LABEL,
-        second_monitor_label=config.SECOND_MONITOR_LABEL,
-        first_monitor_code=config.FIRST_MONITOR_CODE,
-        second_monitor_code=config.SECOND_MONITOR_CODE,
     )
 
     if canteen_data:
