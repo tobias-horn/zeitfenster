@@ -8,6 +8,14 @@ import datetime
 import os
 from urllib.parse import urlencode
 
+# Optional: Pillow for fallback PNG generation if Playwright fails
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except Exception:
+    Image = None
+    ImageDraw = None
+    ImageFont = None
+
 # Optional: Playwright for server-side PNG snapshots
 try:
     from playwright.sync_api import sync_playwright
@@ -137,6 +145,45 @@ def _render_dashboard_png(url: str, width: int, height: int) -> bytes:
         return png_bytes
 
 
+def _render_error_png(width: int, height: int, message: str) -> bytes:
+    if Image is None or ImageDraw is None:
+        # As last resort, return plain bytes to avoid 500 HTML for Kindle
+        return b""
+    img = Image.new('RGB', (width, height), color='white')
+    draw = ImageDraw.Draw(img)
+    # Basic text layout
+    title = "Service Unavailable"
+    body = (message or "Rendering failed").strip()
+    try:
+        font_title = ImageFont.load_default()
+        font_body = ImageFont.load_default()
+    except Exception:
+        font_title = font_body = None
+    # Center text roughly
+    y = 40
+    draw.text((20, y), title, fill='black', font=font_title)
+    y += 30
+    # Wrap body text
+    max_width = width - 40
+    words = body.split()
+    line = ""
+    for w in words:
+        test = (line + " " + w).strip()
+        # crude wrap heuristic
+        if len(test) > 48:
+            draw.text((20, y), line, fill='black', font=font_body)
+            y += 18
+            line = w
+        else:
+            line = test
+    if line:
+        draw.text((20, y), line, fill='black', font=font_body)
+    from io import BytesIO
+    buf = BytesIO()
+    img.save(buf, format='PNG')
+    return buf.getvalue()
+
+
 @app.get('/image-push.png')
 def image_push():
     # Optional token protection
@@ -174,7 +221,8 @@ def image_push():
         try:
             img = _render_dashboard_png(dash_url, width, height)
         except Exception as e:
-            abort(503, description=str(e))
+            # Return a PNG with the error text so Kindle shows something
+            img = _render_error_png(width, height, str(e))
         _IMG_CACHE.update({'key': cache_key, 'ts': now_ts, 'img': img})
 
     resp = make_response(img)
