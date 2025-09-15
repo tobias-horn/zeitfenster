@@ -7,7 +7,7 @@
     <title>{% block title %}Information System{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
-<body class="{% if hide_chrome %}setup{% endif %}">
+<body class="{% if hide_chrome %}setup{% endif %}{% if device %} {{ device }}{% endif %}{% if orientation %} orientation-{{ orientation }}{% endif %}">
     {# Header content is now part of index tiles layout #}
     <main>
         {% block content %}

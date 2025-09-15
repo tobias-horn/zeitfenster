@@ -1,10 +1,18 @@
 # app.py
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, make_response, abort, url_for
 from canteen_data import get_todays_menu, get_canteen_name, list_canteens  # Import helpers
 from weather import get_weather_data
 from transport import get_departures_for_station
 import datetime
+import os
+from urllib.parse import urlencode
+
+# Optional: Playwright for server-side PNG snapshots
+try:
+    from playwright.sync_api import sync_playwright
+except Exception:  # Defer import errors until the snapshot route is used
+    sync_playwright = None
 
 app = Flask(__name__)
 
@@ -20,6 +28,14 @@ def index():
     show_prices_param = (request.args.get('show_prices') or '1').lower()
     show_prices = show_prices_param not in ('0', 'false', 'no')
 
+    # Device and orientation support (for Kindle rendering)
+    device = (request.args.get('device') or '').strip().lower()
+    orientation = (request.args.get('orientation') or 'landscape').strip().lower()
+    if orientation == 'potrait':
+        orientation = 'portrait'
+    if orientation not in ('landscape', 'portrait'):
+        orientation = 'landscape'
+
     # Get the current time and date in the desired formats
     current_time = datetime.datetime.now().strftime("%H:%M")
     current_date = datetime.datetime.now().strftime("%d.%m.%Y")
@@ -30,6 +46,8 @@ def index():
         time=current_time,
         date=current_date,
         show_prices=show_prices,
+        device=device,
+        orientation=orientation,
     )
 
     if canteen_data:
@@ -96,6 +114,86 @@ def stations():
 @app.route('/canteens')
 def canteens():
     return jsonify(list_canteens())
+
+
+# -------- Kindle image-push endpoint --------
+
+# Simple in-memory cache to avoid relaunching Chromium too often
+_IMG_CACHE = {
+    'key': None,
+    'ts': 0,
+    'img': None,
+}
+
+KINDLE_LANDSCAPE = (800, 600)
+KINDLE_PORTRAIT = (600, 800)
+
+
+def _render_dashboard_png(url: str, width: int, height: int) -> bytes:
+    if sync_playwright is None:
+        raise RuntimeError('Playwright is not installed. Add "playwright" to requirements and install browsers.')
+    with sync_playwright() as p:
+        # Try to launch Chromium; rely on Playwright-managed browser
+        browser = p.chromium.launch()
+        page = browser.new_page(
+            viewport={"width": width, "height": height},
+            device_scale_factor=1,
+        )
+        page.goto(url, wait_until="networkidle", timeout=20000)
+        # Ensure white background for any transparent areas
+        page.evaluate("document.documentElement.style.background='white'; document.body.style.background='white';")
+        png_bytes = page.screenshot(type="png", full_page=False)
+        browser.close()
+        return png_bytes
+
+
+@app.get('/image-push.png')
+def image_push():
+    # Optional token protection
+    token_required = os.getenv('IMAGE_PUSH_TOKEN')
+    if token_required:
+        if request.args.get('token') != token_required:
+            abort(403)
+
+    # Orientation and Kindle size
+    orientation = (request.args.get('orientation') or 'landscape').strip().lower()
+    if orientation == 'potrait':
+        orientation = 'portrait'
+    if orientation not in ('landscape', 'portrait'):
+        orientation = 'landscape'
+    width, height = KINDLE_LANDSCAPE if orientation == 'landscape' else KINDLE_PORTRAIT
+
+    # Forward key params for dashboard rendering
+    forward_params = {
+        'station': request.args.get('station', ''),
+        'canteen': request.args.get('canteen', ''),
+        'show_prices': request.args.get('show_prices', '1'),
+        'types': request.args.get('types', ''),
+        'limit': request.args.get('limit', '4'),
+        'offset': request.args.get('offset', '0'),
+        'device': 'kindle',
+        'orientation': orientation,
+    }
+    # Build absolute dashboard URL
+    dash_url = url_for('index', _external=True) + '?' + urlencode(forward_params)
+
+    # Cache key per URL and viewport
+    cache_key = f"{dash_url}|{width}x{height}"
+    now_ts = int(datetime.datetime.now().timestamp())
+    if _IMG_CACHE['key'] == cache_key and _IMG_CACHE['img'] is not None and (now_ts - _IMG_CACHE['ts']) < 30:
+        img = _IMG_CACHE['img']
+    else:
+        try:
+            img = _render_dashboard_png(dash_url, width, height)
+        except Exception as e:
+            abort(503, description=str(e))
+        _IMG_CACHE.update({'key': cache_key, 'ts': now_ts, 'img': img})
+
+    resp = make_response(img)
+    resp.headers['Content-Type'] = 'image/png'
+    resp.headers['Cache-Control'] = 'no-store, max-age=0'
+    resp.headers['X-Rendered-At'] = str(now_ts)
+    return resp
 
 if __name__ == '__main__':
     app.run(debug=True)

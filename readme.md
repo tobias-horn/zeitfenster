@@ -109,6 +109,35 @@ Once the application is running, CampusConnect will display:
 - **Canteen Menu**: Daily menu of the selected canteen with dish details and prices.
 - **Public Transport Schedule**: Live departure times for the configured routes.
 
+### Kindle Image-Push Mode
+
+For e‑ink Kindles, the app exposes a PNG snapshot endpoint that renders the dashboard server-side using a headless browser. This is ideal for devices that periodically download and display a static image.
+
+- Endpoint: `/image-push.png`
+- Query parameters (forwarded to the dashboard):
+  - `station`: MVG station name or id (required)
+  - `canteen`: canteen key (required)
+  - `show_prices`: `1`/`0` (default `1`)
+  - `types`: comma-separated transport types (e.g. `U-Bahn,Bus`)
+  - `limit`, `offset`: paging for departures
+  - `device`: automatically forced to `kindle` when rendering the image
+  - `orientation`: `landscape` (800×600) or `portrait` (600×800), default `landscape`
+  - `token`: optional security token (see below)
+
+Example:
+
+```
+https://<host>/image-push.png?station=Marienplatz&canteen=GARCH&orientation=landscape&types=U-Bahn,Bus
+```
+
+Security: If you set the environment variable `IMAGE_PUSH_TOKEN`, the endpoint requires `?token=<value>`.
+
+Notes on Playwright:
+
+- The endpoint uses Playwright to render the page and take a screenshot.
+- Locally: `pip install -r requirements.txt` then `python -m playwright install chromium` to install the browser.
+- On servers like Heroku, ensure Playwright dependencies and Chromium are available. You may need an additional buildpack for system libs or run `python -m playwright install chromium` during build/startup. If that’s not feasible, consider caching the image and refreshing it less frequently.
+
 ## API Integrations
 
 ### TUM-EAT API

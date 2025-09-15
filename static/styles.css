@@ -176,3 +176,41 @@ em { color: #555; }
 }
 .setup .setup-container { width: 100%; max-width: 600px; }
 .setup .setup-tile { max-width: 600px; margin: 0 auto; }
+
+/* Kindle mode: high-contrast, fixed viewport, no animations */
+body.kindle {
+    margin: 0;
+    background: #fff;
+    color: #000;
+}
+body.kindle *,
+body.kindle *::before,
+body.kindle *::after {
+    animation: none !important;
+    transition: none !important;
+}
+/* Center the fixed-size canvas */
+body.kindle main {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* Exact Kindle canvas sizes */
+body.kindle.orientation-landscape main > .dashboard-grid,
+body.kindle.orientation-landscape main > .setup-container {
+    width: 800px;
+    height: 600px;
+    overflow: hidden;
+}
+body.kindle.orientation-portrait main > .dashboard-grid,
+body.kindle.orientation-portrait main > .setup-container {
+    width: 600px;
+    height: 800px;
+    overflow: hidden;
+}
+/* Crisper, simplified tiles for e-ink */
+body.kindle .tile { border-radius: 0; }
+body.kindle .logo { max-width: 160px; }
+body.kindle .current-temperature { font-size: 2.4rem; }
+body.kindle .departures th, body.kindle .departures td { padding: 4px 6px; }
