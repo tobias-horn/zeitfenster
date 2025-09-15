@@ -1,0 +1,26 @@
+<!-- templates/weather_tile.html -->
+<div class="tile weather-tile" style="grid-area: weather;">
+  <h2>Wetter München</h2>
+  <div class="data-wrapper">
+      <span class="current-temperature" id="current-temperature"></span>
+      <div class="max-min-wrapper">
+          <p id="max-temperature"></p>
+          <p id="min-temperature"></p>
+      </div>
+  </div>
+  <div class="extras">
+      <div class="extra-item">
+          <img class="icon" src="{{ url_for('static', filename='assets/icons/bx-bolt.svg') }}" alt="UV" />
+          <span id="uv-index"></span>
+      </div>
+      <div class="extra-item">
+          <img class="icon" src="{{ url_for('static', filename='assets/icons/bx-sun-rise.svg') }}" alt="Sonnenaufgang" />
+          <span id="sunrise"></span>
+      </div>
+      <div class="extra-item">
+          <img class="icon" src="{{ url_for('static', filename='assets/icons/bx-sun-set.svg') }}" alt="Sonnenuntergang" />
+          <span id="sunset"></span>
+      </div>
+  </div>
+</div>
+

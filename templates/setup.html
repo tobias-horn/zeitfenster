@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Setup{% endblock %}
+
+{% block content %}
+<div class="setup-container setup-page">
+  <div class="setup-header">
+    <div class="steps">
+      <div class="step current" data-step="1">Welcome</div>
+      <img class="step-sep" src="{{ url_for('static', filename='assets/icons/bx-arrow-right.svg') }}" alt=">" />
+      <div class="step" data-step="2">Transport</div>
+      <img class="step-sep" src="{{ url_for('static', filename='assets/icons/bx-arrow-right.svg') }}" alt=">" />
+      <div class="step" data-step="3">Canteen</div>
+    </div>
+  </div>
+
+  <!-- Step 1: Welcome -->
+  <div class="setup-step" id="step-1">
+    <div class="tile setup-tile">
+      <h1>Welcome to CampusConnect!</h1>
+      <p>Please take a couple of minutes to personalize your dashboard.</p>
+      <div class="actions">
+        <button id="start-setup">Let’s go</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Transport -->
+  <div class="setup-step hidden" id="step-2">
+    <div class="tile setup-tile">
+      <h2>Transportation</h2>
+      <label>Station</label>
+      <input type="text" id="station-search" placeholder="Search station (e.g., Universität, München)" autocomplete="off" />
+      <div id="station-results" class="results"></div>
+
+      <div class="row">
+        <div>
+          <label>Transport types</label>
+          <div class="checkboxes">
+            <label><input type="checkbox" name="tt" value="UBAHN" checked> U‑Bahn</label>
+            <label><input type="checkbox" name="tt" value="SBAHN"> S‑Bahn</label>
+            <label><input type="checkbox" name="tt" value="TRAM"> Tram</label>
+            <label><input type="checkbox" name="tt" value="BUS"> Bus</label>
+          </div>
+        </div>
+        <div>
+          <label>Departure limit</label>
+          <input type="number" id="limit" min="1" max="20" value="4" />
+        </div>
+        <div>
+          <label>Offset minutes (walk)</label>
+          <input type="number" id="offset" min="0" max="60" value="0" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="back-from-2">Back</button>
+        <button id="to-step-3">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Canteen -->
+  <div class="setup-step hidden" id="step-3">
+    <div class="tile setup-tile">
+      <h2>Canteen</h2>
+      <label>Preferred canteen</label>
+      <select id="canteen-select">
+        <option value="">Loading…</option>
+      </select>
+      <div style="margin-top:10px;">
+        <label><input type="checkbox" id="show-prices" checked /> Show prices</label>
+      </div>
+      <div class="actions">
+        <button id="back-from-3">Back</button>
+        <button id="finish-setup">Finish</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Basic wizard behavior
+  const stepEls = {
+    1: document.getElementById('step-1'),
+    2: document.getElementById('step-2'),
+    3: document.getElementById('step-3'),
+  };
+  function setStep(n) {
+    for (const k in stepEls) {
+      stepEls[k].classList.toggle('hidden', Number(k) !== n);
+    }
+    document.querySelectorAll('.steps .step').forEach(el => {
+      const isCurrent = Number(el.dataset.step) === n;
+      el.classList.toggle('current', isCurrent);
+    });
+  }
+
+  // Station search
+  let selectedStation = '';
+  const stationInput = document.getElementById('station-search');
+  const stationResults = document.getElementById('station-results');
+  let debounce;
+  if (stationInput) {
+    stationInput.addEventListener('input', () => {
+      const q = stationInput.value.trim();
+      selectedStation = '';
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(async () => {
+        if (!q) { stationResults.innerHTML = ''; return; }
+        const res = await fetch(`/stations?q=${encodeURIComponent(q)}`);
+        const items = await res.json();
+        stationResults.innerHTML = '';
+        items.forEach(it => {
+          const div = document.createElement('div');
+          div.className = 'result-item';
+          div.textContent = it.label;
+          div.addEventListener('click', () => {
+            stationInput.value = it.label;
+            selectedStation = it.label;
+            stationResults.innerHTML = '';
+          });
+          stationResults.appendChild(div);
+        });
+      }, 200);
+    });
+  }
+
+  // Load canteens
+  const canteenSelect = document.getElementById('canteen-select');
+  fetch('/canteens').then(r => r.json()).then(list => {
+    canteenSelect.innerHTML = '<option value="">Select…</option>';
+    list.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      canteenSelect.appendChild(opt);
+    });
+  }).catch(() => {
+    canteenSelect.innerHTML = '<option value="">Failed to load</option>';
+  });
+
+  // Navigation
+  document.getElementById('start-setup').addEventListener('click', () => setStep(2));
+  document.getElementById('back-from-2').addEventListener('click', () => setStep(1));
+  document.getElementById('back-from-3').addEventListener('click', () => setStep(2));
+  document.getElementById('to-step-3').addEventListener('click', () => {
+    const types = Array.from(document.querySelectorAll('input[name=tt]:checked')).map(el => el.value);
+    const limit = document.getElementById('limit').value || '4';
+    const offset = document.getElementById('offset').value || '0';
+    if (!stationInput.value.trim()) {
+      alert('Please select a station');
+      return;
+    }
+    // persist in URL (without reloading yet)
+    const usp = new URLSearchParams(window.location.search);
+    usp.set('station', selectedStation || stationInput.value.trim());
+    usp.set('types', types.join(','));
+    usp.set('limit', String(limit));
+    usp.set('offset', String(offset));
+    history.replaceState(null, '', `?${usp.toString()}`);
+    setStep(3);
+  });
+
+  document.getElementById('finish-setup').addEventListener('click', () => {
+    const usp = new URLSearchParams(window.location.search);
+    const canteen = canteenSelect.value;
+    const showPrices = document.getElementById('show-prices').checked;
+    if (!canteen) {
+      alert('Please select a canteen');
+      return;
+    }
+    usp.set('canteen', canteen);
+    usp.set('show_prices', showPrices ? '1' : '0');
+    window.location.href = `/?${usp.toString()}`;
+  });
+</script>
+{% endblock %}

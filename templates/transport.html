@@ -1,13 +1,26 @@
 <!-- templates/transport.html -->
-<div class="wrapper-transport">
-    <div class="first-monitor-label">
-        <h2>{{ first_monitor_label }}</h2>
-    {{ first_monitor_code | safe }}
+<div class="wrapper-transport" style="grid-area: transport;">
+    <!-- Dynamic MVG tiles (via /transport_data) -->
+    <div class="tile transport-tile" id="first-monitor">
+        <h2>Departures</h2>
+        <table class="departures">
+            <thead>
+                <tr><th>Linie</th><th>Ziel</th><th>in</th></tr>
+            </thead>
+            <tbody id="first-monitor-body">
+                <tr><td colspan="3"><em>Wird geladen …</em></td></tr>
+            </tbody>
+        </table>
     </div>
-    <div class="second-monitor-label">
-        <h2>{{ second_monitor_label }}</h2>
-        {{ second_monitor_code | safe }}
-    </div>
-    <script type="text/javascript" src="https://www.mvv-muenchen.de/typo3conf/ext/sn_mvv_efa/Resources/Public/mvv-monitor/mvv-monitor.min.js"></script>
+    
 
+    <!-- Fallback: legacy MVV embed if API not available -->
+    <div class="legacy-embed" id="legacy-embed" style="display:none;">
+        <div class="first-monitor-label">
+            <h2>Departures</h2>
+            {{ first_monitor_code | safe }}
+        </div>
+        
+        <script type="text/javascript" src="https://www.mvv-muenchen.de/typo3conf/ext/sn_mvv_efa/Resources/Public/mvv-monitor/mvv-monitor.min.js"></script>
+    </div>
 </div>

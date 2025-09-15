@@ -1,11 +1,15 @@
 <!-- templates/canteen.html -->
 
-<div class="wrapper-canteen">
-    <h2>{{ canteen_name }}</h2> <!-- Use the dynamic canteen_name -->
+<div class="wrapper-canteen tile">
+    {% set date_parts = canteen_data.date.split('-') if canteen_data else None %}
+    <div class="canteen-header-line">
+        <h2 class="canteen-title">{{ canteen_name }}</h2>
+        {% if date_parts %}
+            <span class="menu-date">Menü am {{ date_parts[2] }}.{{ date_parts[1] }}.{{ date_parts[0] }}</span>
+        {% endif %}
+    </div>
     {% if canteen_data %}   
         {% if canteen_data.dishes %}
-            {% set date_parts = canteen_data.date.split('-') %}
-            <em>Menü am {{ date_parts[2] }}.{{ date_parts[1] }}.{{ date_parts[0] }}</em><br><br> <!-- Reformatted date -->
             <div class="dish-container">
                 {% for dish in canteen_data.dishes %}
                     {% if dish.dish_type not in ["Süßspeise", "Tagessupe, Brot, Obst", "Tagessuppe", "Brot", "Obst", "Dessert (Glas)"] %}
@@ -25,17 +29,19 @@
                             </span>
                             <strong class="dish-title">{{ dish.name }}</strong><br>
     
-                            <span class="price-line">
-                                <em>Preis:</em>
-                                {% set student_price = dish.prices.get('students', {}) %}
-                                {% if student_price.base_price %}
-                                    €{{ '%.2f' | format(student_price.base_price) }}
-                                {% elif student_price.price_per_unit %}
-                                    €{{ '%.2f' | format(student_price.price_per_unit) }} per {{ student_price.unit }}
-                                {% else %}
-                                    Not Available
-                                {% endif %}
-                            </span>
+                            {% if show_prices %}
+                                <span class="price-line">
+                                    <em>Preis:</em>
+                                    {% set student_price = dish.prices.get('students', {}) %}
+                                    {% if student_price.base_price %}
+                                        €{{ '%.2f' | format(student_price.base_price) }}
+                                    {% elif student_price.price_per_unit %}
+                                        €{{ '%.2f' | format(student_price.price_per_unit) }} per {{ student_price.unit }}
+                                    {% else %}
+                                        Not Available
+                                    {% endif %}
+                                </span>
+                            {% endif %}
                         </div>
                     {% endif %}
                 {% endfor %}

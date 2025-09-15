@@ -5,11 +5,9 @@
 {% block title %}Welcome to the Information System{% endblock %}
 
 {% block content %}
-
-
-
-    <!-- Include the canteen functionality -->
-    <div class="wrapper">
+    <div class="dashboard-grid">
+        {% include 'top_banner.html' %}
+        {% include 'weather_tile.html' %}
         {% include 'transport.html' %}
         {% include 'canteen.html' %}
     </div>

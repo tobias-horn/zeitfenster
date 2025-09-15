@@ -1,38 +1,31 @@
 body {
     font-family: Arial, sans-serif;
-    margin: 20px;
-    color: #333;
-    background-color: #F5F6FA;
+    margin: 12px;
+    color: #000;
+    background-color: #fff; /* E-ink friendly */
 }
 
 h1 {
     color: #2c3e50;
 }
 
-h2 {
-    color: #34495e;
-    margin-top: 10px;
-}
+h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 6px; font-weight: 700; }
+h2 { font-size: 1.3rem; line-height: 1.25; margin: 0 0 6px; font-weight: 700; }
+h3 { font-size: 1.1rem; line-height: 1.3; margin: 0 0 6px; font-weight: 700; }
+h4 { font-size: 1.0rem; line-height: 1.3; margin: 0 0 6px; font-weight: 700; }
 
 ul {
     list-style-type: none;
     padding: 0;
 }
 
-li {
-    background-color: #ecf0f1;
-    margin-bottom: 10px;
-    padding: 10px;
-    border-radius: 5px;
-}
+li { margin-bottom: 10px; padding: 10px; }
 
 strong {
     font-size: 1.2em;
 }
 
-em {
-    color: #7f8c8d;
-}
+em { color: #555; }
 
 /* MVG TRANSPORT DISPLAY */
 
@@ -88,27 +81,38 @@ table .mvv-monitor-departures-tbody tr {
     padding: 0px !important;
 }
 
-.wrapper {
-    display: flex;
-    gap: 20px;
-}   
+/* Dashboard grid: top banner, then weather + transport, then full-width canteen */
+.dashboard-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+        "top"
+        "weather"
+        "transport"
+        "canteen";
+    align-items: stretch;
+}
+@media (min-width: 900px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+            "top top"
+            "weather transport"
+            "canteen canteen";
+    }
+}
 
 /* DASHBOARD HEADER STYLES */
 
-header {
-    display: flex;
-    
-    justify-content: space-between;
-    background-color: white;
-    border-radius: 15px;
-    padding: 15px;
-    margin-bottom: 20px;
-    align-items: center;
+.tile {
+    border: 2px solid #000;
+    border-radius: 8px;
+    padding: 12px;
 }
 
-.logo {
-    max-width: 250px;
-  }
+.logo { max-width: 200px; }
+.timestamp { margin-top: 8px; font-size: 1.1em; }
 
 .current-temperature {
     font-size: 3em;
@@ -120,55 +124,33 @@ header {
     gap: 10px;
 }
 
-/* TIME DISPLAY */
+.extras { display: flex; gap: 16px; margin-top: 8px; }
+.extra-item { display: inline-flex; align-items: center; gap: 6px; }
+.icon { width: 20px; height: 20px; display: inline-block; }
 
-.blinking-colon {
-    animation: blink 1s steps(2, start) infinite;
-  }
-  
-  @keyframes blink {
-    0%, 100% {
-      color: black;
-    }
-    50% {
-      color: lightgray;
-    }
-  }
+/* No animations for e-ink */
 
 
 /* DASHBOARD STYLES */
 
 
-.wrapper-canteen {
-    flex: 10;
-    background-color: white;
-    padding: 15px;
-    border-radius: 15px;
-}
+.wrapper-canteen { grid-column: 1 / -1; grid-area: canteen; }
 
-.wrapper-transport {
-    flex: 1;
-    padding: 15px;
-    background-color: white;
-    border-radius: 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-}
+.wrapper-transport { display: block; }
 
 
 /* CANTEEN STYLES */
 
 .dish-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive columns */
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); /* More compact */
+    gap: 12px;
 }
 
 .dish-box {
-    background-color: #EFFAFF;
-    padding: 15px;
-    border-radius: 20px;
+    border: 1px solid #000;
+    padding: 10px;
+    border-radius: 10px;
     text-align: left;
     display: flex;
     flex-direction: column;
@@ -184,6 +166,66 @@ header {
     display: block;            
 }
 
+/* Transport departures table */
+.departures { width: 100%; border-collapse: collapse; }
+.departures th, .departures td { padding: 6px 8px; text-align: left; }
+.departures thead tr { border-bottom: 2px solid #000; }
+.departures tbody tr { border-top: 1px solid #000; }
+
+/* Header tile internals */
+.header-tile .header-inner { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: center; }
+@media (min-width: 900px) {
+  .header-tile .header-inner { grid-template-columns: 1fr 1fr; }
+}
+.header-tile .brand .logo { max-width: 180px; }
+.header-tile .brand .timestamp { margin-top: 6px; font-size: 1.1em; }
+
+/* Top banner */
+.top-banner .top-banner-inner { display: flex; align-items: center; justify-content: space-between; }
+.top-banner .logo { max-width: 200px; }
+.top-banner .timestamp { font-size: 1.2rem; }
+.top-banner .subline { margin-top: 6px; color: #333; }
+
+/* Weather tile compact spacing */
+.weather-tile .data-wrapper { display: flex; gap: 12px; align-items: baseline; }
+.weather-tile .current-temperature { font-size: 2.6rem; }
+.weather-tile .max-min-wrapper p { margin: 0; }
+.weather-tile .extras { margin-top: 6px; gap: 10px; }
+
+/* Canteen header inline date */
+.canteen-header-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.canteen-header-line .menu-date { color: #555; }
+
+/* Setup wizard */
+.setup-container { display: grid; gap: 12px; }
+.setup-header h1 { margin: 0; }
+.steps { display: flex; gap: 8px; }
+.step { border: 1px solid #000; padding: 6px 10px; border-radius: 6px; }
+.step.current { background: #000; color: #fff; }
+.step-sep { width: 14px; height: 14px; align-self: center; }
+.setup-step.hidden { display: none; }
+.setup-step .row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+.setup-step label { display: block; font-weight: bold; margin: 6px 0; }
+.setup-step input[type=text],
+.setup-step input[type=number],
+.setup-step select { padding: 6px; border: 1px solid #000; border-radius: 4px; }
+.checkboxes { display: grid; grid-template-columns: repeat(2, auto); gap: 6px 16px; }
+.results { border: 1px solid #000; border-radius: 4px; max-height: 200px; overflow: auto; margin-top: 6px; }
+.result-item { padding: 6px 8px; cursor: pointer; }
+.result-item:hover { background: #eee; }
+.actions { margin-top: 12px; }
+.actions button { border: 1px solid #000; background: #fff; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.actions button:hover { background: #f2f2f2; }
+
 
 
   
+.setup main {
+    min-height: calc(100vh - 24px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.setup .setup-container { width: 100%; max-width: 600px; }
+.setup .setup-tile { max-width: 600px; margin: 0 auto; }
+

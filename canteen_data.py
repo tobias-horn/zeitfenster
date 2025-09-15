@@ -9,8 +9,8 @@ def get_current_date_info():
     date_str = today.strftime('%Y-%m-%d')
     return date_str, today
 
-def fetch_menu(year, week_num):
-    url = f"https://tum-dev.github.io/eat-api/{config.CANTEEN_KEY}/{year}/{week_num:02d}.json"
+def fetch_menu_for_key(canteen_key, year, week_num):
+    url = f"https://tum-dev.github.io/eat-api/{canteen_key}/{year}/{week_num:02d}.json"
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -20,11 +20,20 @@ def fetch_menu(year, week_num):
         print(f"Error fetching menu data: {e}")
         return None
 
-def get_todays_menu():
-    date_obj = datetime.now()
+def get_todays_menu(canteen_key: str | None = None):
+    """Return the menu for today, except after 14:00 switch to the next day.
+
+    Falls back to the next available day (max 7 days ahead) if no dishes
+    are available for the chosen date (e.g., weekends or holidays).
+    """
+    now = datetime.now()
+    # After 14:00, show menu for the next day
+    date_obj = now + timedelta(days=1) if now.hour >= 14 else now
     attempts = 0
     max_attempts = 7  # Limit to 7 days ahead
     menu_data_cache = {}
+    if not canteen_key:
+        canteen_key = getattr(config, 'CANTEEN_KEY', 'mensa-garching')
 
     while attempts < max_attempts:
         date_str = date_obj.strftime('%Y-%m-%d')
@@ -32,7 +41,7 @@ def get_todays_menu():
         week_num = date_obj.isocalendar()[1]
 
         if (year, week_num) not in menu_data_cache:
-            menu_data = fetch_menu(year, week_num)
+            menu_data = fetch_menu_for_key(canteen_key, year, week_num)
             if not menu_data:
                 # Cannot fetch menu data for this week
                 menu_data_cache[(year, week_num)] = None
@@ -78,3 +87,18 @@ def get_canteen_name(canteen_key):
     except requests.RequestException as e:
         print(f"Error fetching canteen data: {e}")
         return None
+
+def list_canteens():
+    """Return list of canteens as [{'id': key, 'name': name}, ...]."""
+    url = "https://tum-dev.github.io/eat-api/enums/canteens.json"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        canteens = response.json()
+        out = []
+        for c in canteens:
+            out.append({'id': c.get('canteen_id'), 'name': c.get('name')})
+        return out
+    except requests.RequestException as e:
+        print(f"Error fetching canteen list: {e}")
+        return []

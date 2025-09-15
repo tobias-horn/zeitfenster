@@ -1,13 +1,13 @@
 // static/script.js
 
-// Function to update the current time with a blinking colon
+// Function to update the current time (no animation for e-ink)
 function updateTime() {
     const timeElement = document.getElementById('current-time');
     if (timeElement) {
         const now = new Date();
         const [hours, minutes] = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }).split(':');
         const dateString = now.toLocaleDateString('de-DE');
-        timeElement.innerHTML = `${hours}<span class="blinking-colon">:</span>${minutes} | ${dateString}`;
+        timeElement.textContent = `${hours}:${minutes} | ${dateString}`;
     }
 }
 
@@ -33,12 +33,30 @@ function updateWeather() {
         .then(response => response.json())
         .then(data => {
             if (!data.error) {
-                document.getElementById('current-temperature').textContent = `${data.current_temperature}°C`;
-                document.getElementById('max-temperature').textContent = `H: ${data.max_temperature} °C`;
-                document.getElementById('min-temperature').textContent = `L: ${data.min_temperature} °C`;
+                const curEl = document.getElementById('current-temperature');
+                if (curEl) curEl.textContent = `${data.current_temperature}°C`;
+                const maxEl = document.getElementById('max-temperature');
+                if (maxEl) maxEl.textContent = `H: ${data.max_temperature} °C`;
+                const minEl = document.getElementById('min-temperature');
+                if (minEl) minEl.textContent = `L: ${data.min_temperature} °C`;
+
+                // UV index and sunrise/sunset
+                const uvEl = document.getElementById('uv-index');
+                if (uvEl && data.uv_index_max !== undefined) {
+                    uvEl.textContent = `UV ${data.uv_day_label}: ${data.uv_index_max}`;
+                }
+                const sunriseEl = document.getElementById('sunrise');
+                const sunsetEl = document.getElementById('sunset');
+                if (sunriseEl && data.sunrise) {
+                    const t = new Date(data.sunrise);
+                    sunriseEl.textContent = `${t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
+                }
+                if (sunsetEl && data.sunset) {
+                    const t = new Date(data.sunset);
+                    sunsetEl.textContent = `${t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
+                }
             } else {
                 console.error('Error fetching weather data:', data.error);
-                // Optionally, display an error message on the page
             }
         })
         .catch(error => console.error('Error:', error));
@@ -47,3 +65,47 @@ function updateWeather() {
 // Update weather immediately and then every 15 minutes
 updateWeather();
 setInterval(updateWeather, 900000); // 900000 milliseconds = 15 minutes
+
+// Function to fetch and update MVG transport data
+function updateTransport() {
+    const qs = window.location.search || '';
+    fetch('/transport_data' + qs)
+        .then(response => response.json())
+        .then(data => {
+            const firstBody = document.getElementById('first-monitor-body');
+            let hasData = false;
+
+            function renderRows(list, tbody) {
+                if (!tbody) return false;
+                tbody.innerHTML = '';
+                if (list && list.length) {
+                    hasData = true;
+                    for (const dep of list) {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${dep.line}</td><td>${dep.destination}</td><td>${dep.minutes} min</td>`;
+                        tbody.appendChild(tr);
+                    }
+                } else {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = '<td colspan="3"><em>Keine Daten</em></td>';
+                    tbody.appendChild(tr);
+                }
+            }
+
+            renderRows(data.first, firstBody);
+
+            const legacy = document.getElementById('legacy-embed');
+            if (legacy) {
+                legacy.style.display = hasData ? 'none' : 'block';
+            }
+        })
+        .catch(err => {
+            console.error('Transport fetch failed', err);
+            const legacy = document.getElementById('legacy-embed');
+            if (legacy) legacy.style.display = 'block';
+        });
+}
+
+// Initial fetch and periodic refresh (e-ink friendly: every 60s)
+updateTransport();
+setInterval(updateTransport, 60000);
