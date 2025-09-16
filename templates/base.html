@@ -15,15 +15,6 @@
     </main>
 
     <!-- Include your JavaScript file -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" integrity="sha512-+8t3mNhL2n84gjP6iYoH09rGZUQqf2/q+2f8ptbbI4B0iuu0qGzH7nRH99WCaF9qt6r0c3usqgq2y0Wzn1o7wg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script>
-      // Replace emoji characters with SVGs for consistent rendering in headless Chrome
-      document.addEventListener('DOMContentLoaded', function(){
-        if (window.twemoji) {
-          twemoji.parse(document.body, {folder: 'svg', ext: '.svg'});
-        }
-      });
-    </script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

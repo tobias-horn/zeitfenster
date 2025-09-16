@@ -146,54 +146,78 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
             locale="de-DE",
         )
         page = context.new_page()
-        page.goto(url, wait_until="networkidle", timeout=30000)
-        # Ensure Twemoji library is present (inject if not already loaded)
         try:
-            page.add_script_tag(url="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js")
-        except Exception:
-            pass
-        # (Defer zoom until after fonts/images are ready; see below)
-        # Wait for fonts and async layout to settle
-        try:
-            page.evaluate("return (document.fonts ? document.fonts.ready : Promise.resolve())")
-        except Exception:
-            pass
-        # Ensure Twemoji images are replaced when library is present
-        try:
-            page.evaluate("if (window.twemoji) twemoji.parse(document.body, {folder:'svg', ext:'.svg'})")
-        except Exception:
-            pass
-        # Wait for all images (incl. emoji SVGs) to load
-        try:
-            page.wait_for_function("Array.from(document.images).every(img => img.complete && img.naturalWidth > 0)", timeout=3000)
-        except Exception:
-            pass
-        page.wait_for_timeout(300)
-        # Apply zoom via transform scale on the main grid so the scaled content still fills the viewport
-        if zoom is not None:
+            # Use a conservative wait to avoid H12 timeouts; the page loads its own data via JS
+            page.goto(url, wait_until="domcontentloaded", timeout=10000)
+            # Wait for the dashboard shell to be present (but don't block for long)
             try:
-                z = float(zoom)
-                if 0.1 <= z <= 2.0:
-                    page.evaluate(
-                        """
-                        (function(z){
-                          var root = document.querySelector('.dashboard-grid') || document.body;
-                          root.style.transformOrigin = 'top left';
-                          root.style.transform = 'scale(' + z + ')';
-                          // Ensure scaled content fits exactly into the viewport dimensions
-                          var W = window.innerWidth;
-                          var H = window.innerHeight;
-                          root.style.width = Math.ceil(W / z) + 'px';
-                          root.style.height = Math.ceil(H / z) + 'px';
-                        })(arguments[0]);
-                        """,
-                        z,
-                    )
+                page.wait_for_selector('.dashboard-grid', timeout=3000)
             except Exception:
                 pass
-        # Ensure white background for any transparent areas
-        page.evaluate("document.documentElement.style.background='white'; document.body.style.background='white';")
-        png_bytes = page.screenshot(type="png", full_page=False)
+            # Apply zoom via transform scale so scaled content still fills the viewport
+            if zoom is not None:
+                try:
+                    z = float(zoom)
+                    if 0.1 <= z <= 2.0:
+                        page.evaluate(
+                            """
+                            (function(z){
+                              var root = document.querySelector('.dashboard-grid') || document.body;
+                              root.style.transformOrigin = 'top left';
+                              root.style.transform = 'scale(' + z + ')';
+                              // Ensure scaled content fits exactly into the viewport dimensions
+                              var W = window.innerWidth;
+                              var H = window.innerHeight;
+                              root.style.width = Math.ceil(W / z) + 'px';
+                              root.style.height = Math.ceil(H / z) + 'px';
+                            })(arguments[0]);
+                            """,
+                            z,
+                        )
+                except Exception:
+                    pass
+            # Remove emojis from text nodes for the image route only
+            try:
+                page.evaluate(
+                    """
+                    (function(){
+                      var emojiRe;
+                      try { emojiRe = new RegExp('[\\\p{Extended_Pictographic}\\uFE0F\\u200D]','gu'); }
+                      catch(e) { emojiRe = /[\u231A-\u231B\u23E9-\u23EC\u23F0\u23F3\u25FD-\u25FE\u2600-\u27BF\u2934-\u2935\u2B05-\u2B07\u3030\u303D\u3297\u3299\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff]|\ufe0f|\u200d/g; }
+                      var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                      var nodes = [];
+                      var n;
+                      while ((n = walker.nextNode())) { nodes.push(n); }
+                      nodes.forEach(function(t){
+                        if (emojiRe.test(t.nodeValue)) {
+                          t.nodeValue = t.nodeValue.replace(emojiRe, '').replace(/\s{2,}/g,' ').trim();
+                        }
+                      });
+                      // Hide empty spans that only held emojis
+                      Array.from(document.querySelectorAll('span')).forEach(function(el){
+                        if (!el.textContent || !el.textContent.trim()) { el.style.display = 'none'; }
+                      });
+                    })();
+                    """
+                )
+            except Exception:
+                pass
+            # Minimal settle
+            page.wait_for_timeout(250)
+            # Ensure white background for any transparent areas
+            page.evaluate("document.documentElement.style.background='white'; document.body.style.background='white';")
+            png_bytes = page.screenshot(type="png", full_page=False)
+        finally:
+            # Always close to avoid TargetClosedError leaks
+            try:
+                context.close()
+            except Exception:
+                pass
+            try:
+                browser.close()
+            except Exception:
+                pass
+
         # Post-process with Pillow: ensure exact size and 8-bit grayscale, non-interlaced
         if Image is not None:
             try:
@@ -212,8 +236,7 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
             except Exception:
                 # If Pillow fails, fall back to original screenshot
                 pass
-        context.close()
-        browser.close()
+
         return png_bytes
 
 
