@@ -41,7 +41,9 @@ em { color: #555; }
         "canteen";
     align-items: stretch;
 }
-@media (min-width: 900px) {
+/* Two-column layout kicks in slightly below 800px viewport width
+   to account for default body margins. 776px = 800 - 2*12px */
+@media (min-width: 776px) {
     .dashboard-grid {
         grid-template-columns: 1fr 1fr;
         grid-template-areas:

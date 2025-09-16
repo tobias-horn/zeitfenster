@@ -191,6 +191,11 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
             page.evaluate("if (window.twemoji) twemoji.parse(document.body, {folder:'svg', ext:'.svg'})")
         except Exception:
             pass
+        # Wait for all images (incl. emoji SVGs) to load
+        try:
+            page.wait_for_function("Array.from(document.images).every(img => img.complete && img.naturalWidth > 0)", timeout=3000)
+        except Exception:
+            pass
         page.wait_for_timeout(300)
         # Ensure white background for any transparent areas
         page.evaluate("document.documentElement.style.background='white'; document.body.style.background='white';")
