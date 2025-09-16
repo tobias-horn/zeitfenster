@@ -147,6 +147,19 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
         )
         page = context.new_page()
         page.goto(url, wait_until="networkidle", timeout=30000)
+        # First, enforce exact canvas sizing and small inner padding
+        page.add_style_tag(content=f"""
+            html, body {{
+                margin: 0 !important;
+                padding: 8px !important; /* small border around tiles */
+                width: {width}px !important;
+                height: {height}px !important;
+                overflow: hidden !important;
+                background: #fff !important;
+                color: #000 !important;
+            }}
+            main {{ width: 100% !important; height: 100% !important; }}
+        """)
         # Ensure Twemoji library is present (inject if not already loaded)
         try:
             page.add_script_tag(url="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js")
@@ -176,19 +189,6 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
                     )
             except Exception:
                 pass
-        # Force small padding and exact canvas sizing in the capture context to add a subtle border
-        page.add_style_tag(content=f"""
-            html, body {{
-                margin: 0 !important;
-                padding: 8px !important; /* small border around tiles */
-                width: {width}px !important;
-                height: {height}px !important;
-                overflow: hidden !important;
-                background: #fff !important;
-                color: #000 !important;
-            }}
-            main {{ width: 100% !important; height: 100% !important; }}
-        """)
         # Wait for fonts and async layout to settle
         try:
             page.evaluate("return (document.fonts ? document.fonts.ready : Promise.resolve())")
