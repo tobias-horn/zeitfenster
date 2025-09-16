@@ -389,13 +389,31 @@ def image_push():
         except Exception as e:
             # Return a PNG with the error text so Kindle shows something
             img = _render_error_png(width, height, str(e))
+        # Rotate landscape content so delivered image is portrait
+        if orientation == 'landscape' and Image is not None and img:
+            try:
+                from io import BytesIO
+                im = Image.open(BytesIO(img))
+                im = im.rotate(90, expand=True)
+                if im.mode != 'L':
+                    im = im.convert('L')
+                out = BytesIO()
+                im.save(out, format='PNG', optimize=True)
+                img = out.getvalue()
+            except Exception:
+                pass
         _IMG_CACHE.update({'key': cache_key, 'ts': now_ts, 'img': img})
 
     resp = make_response(img)
     resp.headers['Content-Type'] = 'image/png'
     resp.headers['Cache-Control'] = 'no-store, max-age=0'
     resp.headers['X-Rendered-At'] = str(now_ts)
-    resp.headers['X-Viewport'] = f"{width}x{height}"
+    # Report delivered dimensions (after rotation for landscape)
+    if orientation == 'landscape':
+        delivered_w, delivered_h = height, width
+    else:
+        delivered_w, delivered_h = width, height
+    resp.headers['X-Viewport'] = f"{delivered_w}x{delivered_h}"
     resp.headers['X-Scale'] = str(zoom) if zoom is not None else 'none'
     resp.headers['X-URL'] = dash_url
     # Report internal render viewport used for scaling
