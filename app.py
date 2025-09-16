@@ -147,6 +147,11 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
         )
         page = context.new_page()
         page.goto(url, wait_until="networkidle", timeout=30000)
+        # Ensure Twemoji library is present (inject if not already loaded)
+        try:
+            page.add_script_tag(url="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js")
+        except Exception:
+            pass
         # Optional zoom to match DevTools zoomed-out view (e.g., 0.6)
         if zoom is not None:
             try:
@@ -159,8 +164,11 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
                           root.style.transformOrigin = 'top left';
                           root.style.transform = 'scale(' + z + ')';
                           // Expand layout area so scaled content fills the viewport exactly
-                          var W = Math.ceil(window.innerWidth / z);
-                          var H = Math.ceil(window.innerHeight / z);
+                          var cs = getComputedStyle(document.body);
+                          var padX = (parseInt(cs.paddingLeft)||0) + (parseInt(cs.paddingRight)||0);
+                          var padY = (parseInt(cs.paddingTop)||0) + (parseInt(cs.paddingBottom)||0);
+                          var W = Math.ceil((window.innerWidth - padX) / z);
+                          var H = Math.ceil((window.innerHeight - padY) / z);
                           root.style.width = W + 'px';
                           root.style.height = H + 'px';
                         })(%f);
@@ -168,11 +176,11 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
                     )
             except Exception:
                 pass
-        # Force zero margins and exact canvas sizing in the capture context to avoid empty borders
+        # Force small padding and exact canvas sizing in the capture context to add a subtle border
         page.add_style_tag(content=f"""
             html, body {{
                 margin: 0 !important;
-                padding: 0 !important;
+                padding: 8px !important; /* small border around tiles */
                 width: {width}px !important;
                 height: {height}px !important;
                 overflow: hidden !important;
@@ -200,17 +208,23 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
         # Ensure white background for any transparent areas
         page.evaluate("document.documentElement.style.background='white'; document.body.style.background='white';")
         png_bytes = page.screenshot(type="png", full_page=False)
-        # Downscale to exact canvas size if DPR > 1 to keep output at {width}x{height}
+        # Post-process with Pillow: ensure exact size and 8-bit grayscale, non-interlaced
         if Image is not None:
             try:
                 from io import BytesIO
                 im = Image.open(BytesIO(png_bytes))
+                # Resize to exact canvas if needed (because DPR=2 capture is larger)
                 if im.size != (width, height):
                     im = im.resize((width, height), Image.LANCZOS)
-                    out = BytesIO()
-                    im.save(out, format='PNG')
-                    png_bytes = out.getvalue()
+                # Convert to 8-bit grayscale (Kindle-friendly: color type 0, no alpha)
+                if im.mode != 'L':
+                    im = im.convert('L')
+                out = BytesIO()
+                # Save non-interlaced PNG by default (no alpha, no exotic chunks)
+                im.save(out, format='PNG', optimize=True)
+                png_bytes = out.getvalue()
             except Exception:
+                # If Pillow fails, fall back to original screenshot
                 pass
         context.close()
         browser.close()
