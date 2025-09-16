@@ -277,10 +277,13 @@ def image_push():
     # Build absolute dashboard URL (screenshot the main page)
     dash_url = url_for('index', _external=True) + '?' + urlencode(forward_params)
 
-    # Cache key per URL and viewport
-    cache_key = f"{dash_url}|{width}x{height}"
+    # Cache key per URL, viewport, and zoom
+    cache_key = f"{dash_url}|{width}x{height}|zoom={zoom if zoom is not None else 'none'}"
     now_ts = int(datetime.datetime.now().timestamp())
-    if _IMG_CACHE['key'] == cache_key and _IMG_CACHE['img'] is not None and (now_ts - _IMG_CACHE['ts']) < 30:
+    # Optional cache bypass via ?cache=0
+    cache_param = (request.args.get('cache') or '').lower()
+    bypass_cache = cache_param in ('0', 'false', 'no')
+    if (not bypass_cache) and _IMG_CACHE['key'] == cache_key and _IMG_CACHE['img'] is not None and (now_ts - _IMG_CACHE['ts']) < 30:
         img = _IMG_CACHE['img']
     else:
         try:
@@ -294,6 +297,9 @@ def image_push():
     resp.headers['Content-Type'] = 'image/png'
     resp.headers['Cache-Control'] = 'no-store, max-age=0'
     resp.headers['X-Rendered-At'] = str(now_ts)
+    resp.headers['X-Viewport'] = f"{width}x{height}"
+    resp.headers['X-Zoom'] = str(zoom) if zoom is not None else 'none'
+    resp.headers['X-URL'] = dash_url
     return resp
 
 if __name__ == '__main__':
