@@ -137,12 +137,32 @@ KINDLE_PORTRAIT = (600, 800)
 def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | None = None) -> bytes:
     if sync_playwright is None:
         raise RuntimeError('Playwright is not installed. Add "playwright" to requirements and install browsers.')
+    # Compute render viewport from desired scale (zoom). We render larger for zoom<1
+    # and smaller for zoom>1, then resize back to the exact target size.
+    eff_scale = 1.0
+    try:
+        if zoom is not None:
+            eff_scale = float(zoom)
+    except Exception:
+        eff_scale = 1.0
+    # Clamp to avoid massive viewports that can crash in headless environments
+    if eff_scale < 0.5:
+        eff_scale = 0.5
+    if eff_scale > 1.5:
+        eff_scale = 1.5
+    render_w = max(1, int(round(width / eff_scale)))
+    render_h = max(1, int(round(height / eff_scale)))
+    # Keep memory bounded by reducing DPR for very large render viewports
+    dsf = 2
+    if render_w * render_h > 1600 * 1200:
+        dsf = 1
+
     with sync_playwright() as p:
         # Launch Chromium; rely on Playwright-managed browser
         browser = p.chromium.launch(args=["--no-sandbox", "--disable-setuid-sandbox"], headless=True)
         context = browser.new_context(
-            viewport={"width": width, "height": height},
-            device_scale_factor=2,
+            viewport={"width": render_w, "height": render_h},
+            device_scale_factor=dsf,
             timezone_id="Europe/Berlin",
             locale="de-DE",
         )
@@ -153,6 +173,11 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
             # Wait for the dashboard shell to be present (but don't block for long)
             try:
                 page.wait_for_selector('.dashboard-grid', timeout=3000)
+            except Exception:
+                pass
+            # Ensure web fonts are loaded for consistent typography
+            try:
+                page.evaluate("return (document.fonts ? document.fonts.ready : Promise.resolve())")
             except Exception:
                 pass
             # Wait for weather + transport data to populate (bounded)
@@ -171,12 +196,44 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
                 )
             except Exception:
                 pass
-            # Apply zoom using CSS zoom (no width/height compensation) to make content smaller/larger
+            # Apply scale so the content visibly shrinks/expands, while keeping borders about the same.
             if zoom is not None:
                 try:
                     z = float(zoom)
-                    if 0.1 <= z <= 2.0:
-                        page.evaluate("document.documentElement.style.zoom=arguments[0]; document.body.style.zoom=arguments[0];", z)
+                    if 0.1 <= z <= 2.0 and abs(z - 1.0) > 1e-6:
+                        page.evaluate(
+                            """
+                            (function(z){
+                              var grid = document.querySelector('.dashboard-grid');
+                              var root = grid || document.body;
+                              // Set CSS var for border compensation
+                              document.documentElement.style.setProperty('--ccScale', String(z));
+                              // Inject overrides for border widths so they stay visually consistent
+                              if (!document.getElementById('cc-scale-style')) {
+                                var s = document.createElement('style');
+                                s.id = 'cc-scale-style';
+                                s.textContent = `
+                                  .tile { border-width: calc(2px / var(--ccScale, 1)); }
+                                  .dish-box { border-width: calc(1px / var(--ccScale, 1)); }
+                                  .departures thead tr { border-bottom-width: calc(2px / var(--ccScale, 1)); }
+                                  .departures tbody tr { border-top-width: calc(1px / var(--ccScale, 1)); }
+                                `;
+                                document.head.appendChild(s);
+                              }
+                              // Prefer CSS zoom; fallback to transform
+                              root.style.transformOrigin = 'top left';
+                              root.style.transform = '';
+                              root.style.zoom = '';
+                              try { root.style.zoom = String(z); } catch(e) {}
+                              if (!root.style.zoom) {
+                                root.style.transform = 'scale(' + z + ')';
+                              }
+                            })(arguments[0]);
+                            """,
+                            z,
+                        )
+                        # allow a short repaint after scaling
+                        page.wait_for_timeout(100)
                 except Exception:
                     pass
             # Remove emojis from text nodes for the image route only
@@ -226,7 +283,7 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
             try:
                 from io import BytesIO
                 im = Image.open(BytesIO(png_bytes))
-                # Resize to exact canvas if needed (because DPR=2 capture is larger)
+                # Resize to exact target size regardless of render viewport
                 if im.size != (width, height):
                     im = im.resize((width, height), Image.LANCZOS)
                 # Convert to 8-bit grayscale (Kindle-friendly: color type 0, no alpha)
@@ -297,8 +354,8 @@ def image_push():
     if orientation not in ('landscape', 'portrait'):
         orientation = 'landscape'
     width, height = KINDLE_LANDSCAPE if orientation == 'landscape' else KINDLE_PORTRAIT
-    # Optional zoom control (e.g., ?zoom=0.6 for less zoom)
-    zoom_param = request.args.get('zoom')
+    # Optional scale control: support both ?scale= and ?zoom=
+    zoom_param = request.args.get('scale') or request.args.get('zoom')
     zoom = None
     if zoom_param:
         try:
@@ -319,7 +376,7 @@ def image_push():
     dash_url = url_for('index', _external=True) + '?' + urlencode(forward_params)
 
     # Cache key per URL, viewport, and zoom
-    cache_key = f"{dash_url}|{width}x{height}|zoom={zoom if zoom is not None else 'none'}"
+    cache_key = f"{dash_url}|{width}x{height}|scale={zoom if zoom is not None else 'none'}"
     now_ts = int(datetime.datetime.now().timestamp())
     # Optional cache bypass via ?cache=0
     cache_param = (request.args.get('cache') or '').lower()
@@ -339,8 +396,20 @@ def image_push():
     resp.headers['Cache-Control'] = 'no-store, max-age=0'
     resp.headers['X-Rendered-At'] = str(now_ts)
     resp.headers['X-Viewport'] = f"{width}x{height}"
-    resp.headers['X-Zoom'] = str(zoom) if zoom is not None else 'none'
+    resp.headers['X-Scale'] = str(zoom) if zoom is not None else 'none'
     resp.headers['X-URL'] = dash_url
+    # Report internal render viewport used for scaling
+    try:
+        eff_scale = float(zoom) if zoom is not None else 1.0
+    except Exception:
+        eff_scale = 1.0
+    if eff_scale < 0.5:
+        eff_scale = 0.5
+    if eff_scale > 1.5:
+        eff_scale = 1.5
+    render_w = max(1, int(round(width / eff_scale)))
+    render_h = max(1, int(round(height / eff_scale)))
+    resp.headers['X-Render-Viewport'] = f"{render_w}x{render_h}"
     return resp
 
 if __name__ == '__main__':
