@@ -141,37 +141,46 @@ def _render_dashboard_png(url: str, width: int, height: int) -> bytes:
         browser = p.chromium.launch(args=["--no-sandbox", "--disable-setuid-sandbox"], headless=True)
         context = browser.new_context(
             viewport={"width": width, "height": height},
-            device_scale_factor=1,
+            device_scale_factor=2,
             timezone_id="Europe/Berlin",
             locale="de-DE",
         )
         page = context.new_page()
         page.goto(url, wait_until="networkidle", timeout=30000)
+        # Force zero margins and exact canvas sizing in the capture context to avoid empty borders
+        page.add_style_tag(content=f"""
+            html, body {{
+                margin: 0 !important;
+                padding: 0 !important;
+                width: {width}px !important;
+                height: {height}px !important;
+                overflow: hidden !important;
+                background: #fff !important;
+                color: #000 !important;
+            }}
+            main {{ width: 100% !important; height: 100% !important; }}
+        """)
         # Wait for fonts and async layout to settle
         try:
             page.evaluate("return (document.fonts ? document.fonts.ready : Promise.resolve())")
         except Exception:
             pass
-        page.wait_for_timeout(1000)
-        # Scale the main grid to fit the exact viewport if needed (no cropping)
-        page.evaluate(
-            """
-            (function() {
-                const targetW = %d, targetH = %d;
-                const el = document.querySelector('.dashboard-grid') || document.body;
-                const fullW = Math.max(el.scrollWidth, el.getBoundingClientRect().width);
-                const fullH = Math.max(el.scrollHeight, el.getBoundingClientRect().height);
-                const scale = Math.min(targetW / Math.max(1, fullW), targetH / Math.max(1, fullH));
-                if (scale < 1) {
-                    el.style.transformOrigin = 'top left';
-                    el.style.transform = 'scale(' + scale + ')';
-                }
-            })();
-            """ % (width, height)
-        )
+        page.wait_for_timeout(300)
         # Ensure white background for any transparent areas
         page.evaluate("document.documentElement.style.background='white'; document.body.style.background='white';")
         png_bytes = page.screenshot(type="png", full_page=False)
+        # Downscale to exact canvas size if DPR > 1 to keep output at {width}x{height}
+        if Image is not None:
+            try:
+                from io import BytesIO
+                im = Image.open(BytesIO(png_bytes))
+                if im.size != (width, height):
+                    im = im.resize((width, height), Image.LANCZOS)
+                    out = BytesIO()
+                    im.save(out, format='PNG')
+                    png_bytes = out.getvalue()
+            except Exception:
+                pass
         context.close()
         browser.close()
         return png_bytes
