@@ -4,9 +4,10 @@
 function updateTime() {
     const timeElement = document.getElementById('current-time');
     if (timeElement) {
+        const tz = 'Europe/Berlin';
         const now = new Date();
-        const [hours, minutes] = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }).split(':');
-        const dateString = now.toLocaleDateString('de-DE');
+        const [hours, minutes] = now.toLocaleTimeString('de-DE', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).split(':');
+        const dateString = now.toLocaleDateString('de-DE', { timeZone: tz });
         timeElement.textContent = `${hours}:${minutes} | ${dateString}`;
     }
 }
@@ -49,11 +50,11 @@ function updateWeather() {
                 const sunsetEl = document.getElementById('sunset');
                 if (sunriseEl && data.sunrise) {
                     const t = new Date(data.sunrise);
-                    sunriseEl.textContent = `${t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
+                    sunriseEl.textContent = `${t.toLocaleTimeString('de-DE', {timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit'})}`;
                 }
                 if (sunsetEl && data.sunset) {
                     const t = new Date(data.sunset);
-                    sunsetEl.textContent = `${t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
+                    sunsetEl.textContent = `${t.toLocaleTimeString('de-DE', {timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit'})}`;
                 }
             } else {
                 console.error('Error fetching weather data:', data.error);

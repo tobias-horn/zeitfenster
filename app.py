@@ -131,16 +131,62 @@ def _render_dashboard_png(url: str, width: int, height: int) -> bytes:
     if sync_playwright is None:
         raise RuntimeError('Playwright is not installed. Add "playwright" to requirements and install browsers.')
     with sync_playwright() as p:
-        # Try to launch Chromium; rely on Playwright-managed browser
+        # Launch Chromium; rely on Playwright-managed browser
         browser = p.chromium.launch(args=["--no-sandbox", "--disable-setuid-sandbox"], headless=True)
-        page = browser.new_page(
+        context = browser.new_context(
             viewport={"width": width, "height": height},
             device_scale_factor=1,
+            timezone_id="Europe/Berlin",
+            locale="de-DE",
         )
-        page.goto(url, wait_until="networkidle", timeout=20000)
+        page = context.new_page()
+        page.goto(url, wait_until="networkidle", timeout=25000)
+        # Normalize layout for exact canvas and better fidelity
+        page.add_style_tag(content=f"""
+            html, body {{
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+                color: #000 !important;
+                width: {width}px !important;
+                height: {height}px !important;
+                overflow: hidden !important;
+                font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif !important;
+            }}
+            main {{
+                width: {width}px !important;
+                height: {height}px !important;
+                display: flex !important;
+                align-items: stretch !important;
+                justify-content: stretch !important;
+            }}
+            .dashboard-grid {{
+                box-sizing: border-box !important;
+            }}
+            * {{
+                animation: none !important;
+                transition: none !important;
+            }}
+        """)
+        # If content would overflow, scale it down to fit the canvas
+        page.evaluate(
+            """
+            (function() {
+                const targetW = %d, targetH = %d;
+                const grid = document.querySelector('.dashboard-grid') || document.body;
+                const rect = grid.getBoundingClientRect();
+                const scale = Math.min(targetW / Math.max(1, rect.width), targetH / Math.max(1, rect.height));
+                if (scale < 1) {
+                    grid.style.transformOrigin = 'top left';
+                    grid.style.transform = 'scale(' + scale + ')';
+                }
+            })();
+            """ % (width, height)
+        )
         # Ensure white background for any transparent areas
         page.evaluate("document.documentElement.style.background='white'; document.body.style.background='white';")
         png_bytes = page.screenshot(type="png", full_page=False)
+        context.close()
         browser.close()
         return png_bytes
 
