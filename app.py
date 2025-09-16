@@ -134,7 +134,14 @@ KINDLE_LANDSCAPE = (800, 600)
 KINDLE_PORTRAIT = (600, 800)
 
 
-def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | None = None) -> bytes:
+def _render_dashboard_png(
+    url: str,
+    width: int,
+    height: int,
+    *,
+    zoom: float | None = None,
+    expected_rows: int | None = None,
+) -> bytes:
     if sync_playwright is None:
         raise RuntimeError('Playwright is not installed. Add "playwright" to requirements and install browsers.')
     # Compute render viewport from desired scale (zoom). We render larger for zoom<1
@@ -175,6 +182,54 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
                 page.wait_for_selector('.dashboard-grid', timeout=3000)
             except Exception:
                 pass
+            # Screenshot-only CSS tweaks (tighter price spacing/size for canteen items)
+            try:
+                page.add_style_tag(content='''.price-line{font-size:0.80rem !important;margin-top:1px !important;}''')
+            except Exception:
+                pass
+            # Auto-fit height: if no explicit scale is provided, binary-search a viewport scale
+            # so that the measured content height matches the target height within 1px.
+            if zoom is None:
+                try:
+                    target_h = float(height)
+                    # Helper: measure content height (max of doc + root box + scrollHeight)
+                    def measure():
+                        return page.evaluate(
+                            "(() => {\n"
+                            "  const root = document.querySelector('.dashboard-grid') || document.body;\n"
+                            "  const r = root.getBoundingClientRect();\n"
+                            "  const docH = Math.max(document.documentElement.scrollHeight||0, document.body.scrollHeight||0);\n"
+                            "  const rootH = Math.max(r.height, root.scrollHeight||0);\n"
+                            "  return Math.ceil(Math.max(docH, rootH));\n"
+                            "})()"
+                        )
+                    # Binary search scale in [0.5, 1.5]
+                    lo, hi = 0.5, 1.5
+                    best_s, best_err = 1.0, 10**9
+                    for _ in range(8):
+                        s = (lo + hi) / 2.0
+                        vw = max(1, int(math.ceil(width / s)))
+                        vh = max(1, int(math.ceil(height / s)))
+                        page.set_viewport_size({"width": vw, "height": vh})
+                        page.wait_for_timeout(120)
+                        H = measure() or 0
+                        err = abs(H - target_h)
+                        if err < best_err:
+                            best_err, best_s = err, s
+                        # Decide which half to keep: if content taller than target, shrink more (decrease s)
+                        if H > target_h:
+                            hi = s
+                        else:
+                            lo = s
+                        if err <= 1:
+                            break
+                    # Ensure viewport reflects best found scale
+                    final_vw = max(1, int(math.ceil(width / best_s)))
+                    final_vh = max(1, int(math.ceil(height / best_s)))
+                    page.set_viewport_size({"width": final_vw, "height": final_vh})
+                    page.wait_for_timeout(100)
+                except Exception:
+                    pass
             # Ensure web fonts are loaded for consistent typography
             try:
                 page.evaluate("return (document.fonts ? document.fonts.ready : Promise.resolve())")
@@ -182,60 +237,78 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
                 pass
             # Wait for weather + transport data to populate (bounded)
             try:
+                # Weather: wait until current temperature shows a digit
                 page.wait_for_function(
-                    """
-                    () => {
-                      const w = document.getElementById('current-temperature');
-                      const weatherOK = !!(w && /\d/.test((w.textContent||'').trim()));
-                      const b = document.getElementById('first-monitor-body');
-                      const transportOK = !!(b && b.querySelectorAll('tr').length && !b.textContent.includes('Wird geladen'));
-                      return weatherOK && transportOK;
-                    }
-                    """,
-                    timeout=7000,
+                    "() => { const w = document.getElementById('current-temperature'); return !!(w && /\\d/.test((w.textContent||'').trim())); }",
+                    timeout=5000,
                 )
             except Exception:
                 pass
-            # Apply scale so the content visibly shrinks/expands, while keeping borders about the same.
-            if zoom is not None:
-                try:
+            try:
+                # Transport: wait for the fetch to complete at least once
+                page.wait_for_response(lambda r: ('/transport_data' in r.url) and r.ok, timeout=6000)
+            except Exception:
+                pass
+            try:
+                # Finally: consider transport "loaded" as soon as the loading placeholder disappears,
+                # regardless of how many rows the API returned (it may legitimately be zero).
+                page.wait_for_function(
+                    """
+                    () => {
+                      const b = document.getElementById('first-monitor-body');
+                      if (!b) return false;
+                      const txt = (b.textContent || '');
+                      return !/Wird geladen/i.test(txt);
+                    }
+                    """,
+                    timeout=3000,
+                )
+            except Exception:
+                pass
+            # Compute and apply precise visual scale using browser zoom/transform (no app code changes)
+            try:
+                # Decide desired scale: explicit override or auto-fit to target height
+                if zoom is not None:
                     z = float(zoom)
-                    if 0.1 <= z <= 2.0 and abs(z - 1.0) > 1e-6:
-                        page.evaluate(
-                            """
-                            (function(z){
-                              var grid = document.querySelector('.dashboard-grid');
-                              var root = grid || document.body;
-                              // Set CSS var for border compensation
-                              document.documentElement.style.setProperty('--ccScale', String(z));
-                              // Inject overrides for border widths so they stay visually consistent
-                              if (!document.getElementById('cc-scale-style')) {
-                                var s = document.createElement('style');
-                                s.id = 'cc-scale-style';
-                                s.textContent = `
-                                  .tile { border-width: calc(2px / var(--ccScale, 1)); }
-                                  .dish-box { border-width: calc(1px / var(--ccScale, 1)); }
-                                  .departures thead tr { border-bottom-width: calc(2px / var(--ccScale, 1)); }
-                                  .departures tbody tr { border-top-width: calc(1px / var(--ccScale, 1)); }
-                                `;
-                                document.head.appendChild(s);
-                              }
-                              // Prefer CSS zoom; fallback to transform
-                              root.style.transformOrigin = 'top left';
-                              root.style.transform = '';
-                              root.style.zoom = '';
-                              try { root.style.zoom = String(z); } catch(e) {}
-                              if (!root.style.zoom) {
-                                root.style.transform = 'scale(' + z + ')';
-                              }
-                            })(arguments[0]);
-                            """,
-                            z,
-                        )
-                        # allow a short repaint after scaling
-                        page.wait_for_timeout(100)
-                except Exception:
-                    pass
+                    z = max(0.4, min(1.6, z))
+                else:
+                    # Auto: measure current content height and compute exact scale so height == target
+                    H0 = page.evaluate("(() => { const el = document.querySelector('.dashboard-grid') || document.body; const r = el.getBoundingClientRect(); const sh = Math.max(el.scrollHeight||0, document.documentElement.scrollHeight||0, document.body.scrollHeight||0); return Math.ceil(Math.max(r.height, sh)); })()") or 0
+                    z = 1.0
+                    if H0 > 0:
+                        z = max(0.4, min(1.6, float(height) / float(H0)))
+
+                # Apply scale with CSS zoom in percent for Chrome; also set transform fallback and size compensation
+                for _ in range(2):  # refine once after reflow
+                    page.evaluate(
+                        """
+                        (function(z){
+                          var grid = document.querySelector('.dashboard-grid');
+                          var root = grid || document.body;
+                          // Border compensation remains subtle; avoid heavy overrides
+                          // Prefer CSS zoom as a percentage (Chrome). Also set transform as fallback.
+                          document.documentElement.style.zoom = (z*100) + '%';
+                          document.body.style.zoom = (z*100) + '%';
+                          root.style.transformOrigin = 'top left';
+                          root.style.transform = 'scale(' + z + ')';
+                          // Expand layout area so the scaled content still fills the viewport
+                          var W = window.innerWidth, H = window.innerHeight;
+                          root.style.width = Math.ceil(W / z) + 'px';
+                          root.style.height = Math.ceil(H / z) + 'px';
+                        })(arguments[0]);
+                        """,
+                        z,
+                    )
+                    page.wait_for_timeout(120)
+                    # Refine scale once using the new measured height
+                    H1 = page.evaluate("(() => { const el = document.querySelector('.dashboard-grid') || document.body; const r = el.getBoundingClientRect(); const sh = Math.max(el.scrollHeight||0, document.documentElement.scrollHeight||0, document.body.scrollHeight||0); return Math.ceil(Math.max(r.height, sh)); })()") or 0
+                    if H1 > 0:
+                        z2 = max(0.4, min(1.6, z * (float(height)/float(H1))))
+                        if abs(z2 - z) < 0.01:
+                            break
+                        z = z2
+            except Exception:
+                pass
             # Remove emojis from text nodes for the image route only
             try:
                 page.evaluate(
@@ -385,7 +458,13 @@ def image_push():
         img = _IMG_CACHE['img']
     else:
         try:
-            img = _render_dashboard_png(dash_url, width, height, zoom=zoom)
+            # Expected transport rows equals requested limit (bounded 1..12)
+            try:
+                expected_rows = int(request.args.get('limit', '4'))
+            except Exception:
+                expected_rows = 4
+            expected_rows = max(1, min(12, expected_rows))
+            img = _render_dashboard_png(dash_url, width, height, zoom=zoom, expected_rows=expected_rows)
         except Exception as e:
             # Return a PNG with the error text so Kindle shows something
             img = _render_error_png(width, height, str(e))

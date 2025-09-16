@@ -31,7 +31,6 @@
     
                             {% if show_prices %}
                                 <span class="price-line">
-                                    <em>Preis:</em>
                                     {% set student_price = dish.prices.get('students', {}) %}
                                     {% if student_price.base_price %}
                                         €{{ '%.2f' | format(student_price.base_price) }}

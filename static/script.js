@@ -83,7 +83,7 @@ function updateTransport() {
                     hasData = true;
                     for (const dep of list) {
                         const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${dep.line}</td><td>${dep.destination}</td><td>${dep.minutes} min</td>`;
+                        tr.innerHTML = `<td><span class="line-badge">${dep.line}</span></td><td>${dep.destination}</td><td>${dep.minutes} min</td>`;
                         tbody.appendChild(tr);
                     }
                 } else {

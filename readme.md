@@ -1,200 +1,133 @@
-# CampusConnect
+# ZEITFENSTER v2
 
-**CampusConnect** is an information display system designed for students, providing real-time updates on weather, canteen menus, and public transportation schedules. Hosted on a Raspberry Pi, CampusConnect serves as a centralized info screen to keep students informed and organized throughout their campus life.
+A compact Flask dashboard (time, weather, canteen, transport) with a Kindle‑friendly PNG snapshot endpoint. This README summarizes all current behavior and lessons learned (Playwright on Heroku, scaling, rotation, setup flow, etc.).
 
-## Table of Contents
+## Quick Start
 
-- [Features](#features)
-- [Demo](#demo)
-- [Technologies Used](#technologies-used)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Configuration](#configuration)
-- [Usage](#usage)
-- [API Integrations](#api-integrations)
-  - [TUM-EAT API](#tum-eat-api)
-  - [Open-Meteo API](#open-meteo-api)
-  - [MVG Public Transport Widget](#mvg-public-transport-widget)
-- [Project Structure](#project-structure)
+- Python 3.10+
+- No Node required
 
-## Features
+Local
 
-- **Real-Time Weather Updates**: Displays current temperature, maximum and minimum temperatures using the Open-Meteo API.
-- **Canteen Menu**: Shows the daily menu of a selected canteen using the TUM-EAT API.
-- **Public Transport Schedule**: Embeds live public transportation schedules from MVG (Münchner Verkehrsgesellschaft) for selected routes.
-- **Customizable Interface**: Easily configure which canteen and transportation routes to display.
-- **Raspberry Pi Compatible**: Optimized to run smoothly on Raspberry Pi devices.
-
-## Demo
-
-![CampusConnect Screenshot](https://github.com/tobias-horn/campusConnect/blob/main/static/assets/screenshot.png)
-
-## Technologies Used
-
-- **Python Flask**: Backend framework for handling routes and data processing.
-- **HTML/CSS/JavaScript**: Frontend technologies for building the user interface.
-- **Open-Meteo API**: Fetches weather data.
-- **TUM-EAT API**: Retrieves canteen menu information.
-- **MVG Public Transport Widget**: Embeds live public transport schedules.
-- **Raspberry Pi**: Hardware platform for hosting CampusConnect.
-
-## Getting Started
-
-Follow these instructions to set up CampusConnect on your Raspberry Pi.
-
-### Prerequisites
-
-- **Raspberry Pi** (any model compatible with Raspberry Pi OS)
-- **Python 3.7+**
-- **Git**
-- **pip** (Python package installer)
-
-### Installation
-
-1. **Clone the Repository**
-
-   ```bash
-   git clone https://github.com/yourusername/CampusConnect.git
-   cd CampusConnect
-   ```
-
-2. **Create a Virtual Environment**
-
-   It's recommended to use a virtual environment to manage dependencies.
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-3. **Install Dependencies**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set Up Configuration**
-
-   Update `config.py` with your preferred settings.
-
-   **Configuration Parameters:**
-
-   - `CANTEEN_KEY`: Select your preferred canteen key from [TUM-EAT API Canteens](https://github.com/TUM-Dev/eat-api).
-   - `FIRST_MONITOR_LABEL` & `SECOND_MONITOR_LABEL`: Labels for your public transport monitors.
-   - `FIRST_MONITOR_CODE` & `SECOND_MONITOR_CODE`: Embed codes for MVV departure monitors. Obtain these by configuring your preferred monitors at [MVV Developer Page](https://www.mvv-muenchen.de/fahrplanauskunft/fuer-entwickler/homepage-services/index.html).
-
-5. **Run the Application**
-
-   ```bash
-   python app.py
-   ```
-
-   The application will start in development mode. For production, consider using a production-ready server like Gunicorn.
-
-6. **Access CampusConnect**
-
-   Open a web browser and navigate to `http://<your-raspberry-pi-ip>:5000/` to view the CampusConnect dashboard.
-
-### Configuration
-
-Ensure that you have properly configured the `config.py` file with the correct canteen key and MVV monitor codes. The canteen key determines which canteen's menu will be displayed, and the MVV monitor codes customize the public transport schedules shown on the screen.
-
-## Usage
-
-Once the application is running, CampusConnect will display:
-
-- **Current Time and Date**: Updates every minute with a blinking colon separator.
-- **Weather Information**: Current temperature, maximum, and minimum temperatures in Munich.
-- **Canteen Menu**: Daily menu of the selected canteen with dish details and prices.
-- **Public Transport Schedule**: Live departure times for the configured routes.
-
-### Kindle Image-Push Mode
-
-For e‑ink Kindles, use the PNG snapshot endpoint that renders the standard dashboard server‑side. No special HTML parameters are needed.
-
-- Endpoint: `/image-push.png`
-- Query parameters (forwarded to dashboard):
-  - `station`: MVG station name or id (required)
-  - `canteen`: canteen key (required)
-  - `show_prices`: `1`/`0` (default `1`)
-  - `types`: comma-separated transport types (e.g. `UBAHN,BUS`)
-  - `limit`, `offset`: paging for departures
-  - `orientation`: `landscape` (800×600) or `portrait` (600×800) for the image size
-  - `token`: optional security token (see below)
-
-Example:
-
-```
-https://<host>/image-push.png?station=Marienplatz&canteen=GARCH&orientation=landscape&types=U-Bahn,Bus
+```bash
+git clone <repo>
+cd <repo>
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python -m playwright install chromium
+python app.py  # http://127.0.0.1:5000
 ```
 
-Security: If you set the environment variable `IMAGE_PUSH_TOKEN`, the endpoint requires `?token=<value>`.
+Heroku
 
-Notes on Playwright:
-
-- The endpoint uses Playwright to render the page and take a screenshot.
-- Locally: `pip install -r requirements.txt` then `python -m playwright install chromium` to install the browser.
-- Heroku: the `Procfile` runs `python -m playwright install chromium` on boot so Chromium is available. If you see missing‑library errors, add a Playwright/Chromium buildpack to provide system dependencies.
-
-## API Integrations
-
-### TUM-EAT API
-
-CampusConnect integrates with the [TUM-EAT API](https://github.com/TUM-Dev/eat-api) to fetch the daily canteen menu.
-
-- **Endpoint**: `https://tum-dev.github.io/eat-api/`
-- **Configuration**: Set the `CANTEEN_KEY` in `config.py` to your preferred canteen.
-
-### Open-Meteo API
-
-Weather data is fetched using the [Open-Meteo API](https://open-meteo.com/).
-
-- **Endpoint**: `https://api.open-meteo.com/v1/forecast`
-- **Parameters**:
-  - `latitude`: 48.183171
-  - `longitude`: 11.611294
-  - `current_weather`: temperature at 2 meters
-  - `daily`: maximum and minimum temperatures
-  - `timezone`: Europe/Berlin
-  - `forecast_days`: 1
-
-### MVG Public Transport Widget
-
-Public transportation schedules are embedded using a custom MVV (Münchner Verkehrsgesellschaft) widget.
-
-- **Configuration**:
-  1. Visit the [MVV Developer Page](https://www.mvv-muenchen.de/fahrplanauskunft/fuer-entwickler/homepage-services/index.html).
-  2. Configure your preferred monitor settings.
-  3. Copy the generated `<div></div>` element and paste it into the `FIRST_MONITOR_CODE` and `SECOND_MONITOR_CODE` fields in `config.py`.
-
-## Project Structure
+- Stack: heroku-24
+- Buildpacks (order):
+  1. heroku-community/apt
+  2. heroku/python
+- `Procfile` (already in repo):
 
 ```
-CampusConnect/
-├── app.py
-├── canteen_data.py
-├── config.py
-├── requirements.txt
-├── weather.py
-├── templates/
-│   ├── base.html
-│   ├── index.html
-│   ├── canteen.html
-│   └── transport.html
-└── static/
-    ├── styles.css
-    ├── script.js
-    └── assets/
-        ├── logo.png
-        └── screenshot.png
-
+web: sh -c "python -m playwright install chromium && gunicorn app:app"
 ```
 
-- **app.py**: Main Flask application file handling routes and rendering templates.
-- **canteen_data.py**: Handles fetching and processing canteen menu data from the TUM-EAT API.
-- **weather.py**: Fetches and processes weather data from the Open-Meteo API.
-- **config.py**: Configuration file containing canteen keys and MVV monitor codes.
-- **templates/**: Contains HTML templates for the frontend.
-- **static/**: Contains static files like CSS and JavaScript.
-- **assets/**: Stores images and other media assets.
+The `Aptfile` contains the Chromium system libraries needed by Playwright.
+
+## What You Get
+
+- Setup wizard (signup) to pick station, types, limit, offset, and canteen.
+- Dashboard tiles:
+  - Header: “ZEITFENSTER” + “Version: v2” and current time/date (Europe/Berlin)
+  - Weather (Munich, Open‑Meteo): current, H/L, UV, sunrise/sunset
+  - Transport (MVG): live departures with filtering
+  - Canteen (TUM‑Dev Eat API): daily menu; shows next day after 14:00 if needed
+- PNG snapshot endpoint for Kindles and e‑ink displays.
+
+## Key Files
+
+```
+app.py                # Flask routes + /image-push.png
+canteen_data.py       # TUM‑Dev Eat API helpers
+weather.py            # Open‑Meteo integration
+transport.py          # MVG departures (mvg package)
+templates/            # base.html, index.html, tiles, setup.html
+static/styles.css     # Styles (Inter font)
+static/script.js      # Client updates for weather/transport
+Procfile              # Heroku boot
+Aptfile               # Chromium libs for Playwright
+```
+
+## Endpoints
+
+- `/` — dashboard
+  - Query params: `station`, `types` (`UBAHN,SBAHN,BUS,TRAM`), `limit` (int), `offset` (int minutes), `canteen`, `show_prices` (`1|0`)
+  - If `station` or `canteen` missing, shows the setup wizard
+
+- `/image-push.png` — Kindle snapshot
+  - Forwards the dashboard params above
+  - Additional:
+    - `orientation`: `portrait` (600×800) or `landscape` — for landscape, content is rotated 90° so the delivered PNG is still portrait 600×800
+    - `scale` (alias `zoom`): 0.5–1.5 — renders at a scaled viewport and resamples to exact size
+    - `cache`: `0` to bypass the 30s in‑memory cache
+    - `token`: required if `IMAGE_PUSH_TOKEN` env var is set
+  - Response headers: `X-Viewport`, `X-Scale`, `X-Render-Viewport`, `X-URL`
+
+- `/weather_data` — JSON for the weather tile
+- `/transport_data` — JSON for departures (accepts `station,types,limit,offset`)
+- `/stations` — station search results (typed)
+- `/canteens` — canteen list
+
+## Snapshot Behavior (Kindle)
+
+- Exact size: delivered PNG is always portrait 600×800
+- For `orientation=landscape`: the content is rotated to fit portrait output
+- Grayscale: 8‑bit (no alpha, non‑interlaced PNG)
+- Emoji: stripped from text nodes during capture
+- Data readiness before capture:
+  - DOM and grid present; web fonts ready (Inter)
+  - Weather shows a numeric value
+  - One successful `/transport_data` response
+  - The “Wird geladen …” placeholder in the table is gone (even if 0 departures)
+- Scaling: `scale` changes the render viewport; downsampled to exact output
+
+Tip: For very small scale values the render viewport becomes large; the implementation clamps to 0.5–1.5 for safety on Heroku. Use `&cache=0` when iterating.
+
+## Setup Wizard (Signup)
+
+- Step 1 — Welcome
+- Step 2 — Transportation
+  - Full‑width station search
+  - Help text: “Please select your closest public transportation station.”
+  - Departure limit help: “Number of public transport options to be displayed.”
+  - Offset minutes help: “Shifts departures by your walking time to the station.”
+- Step 3 — Canteen
+  - Help text: “Please select your preferred canteen.”
+
+## Data Sources
+
+- Weather: Open‑Meteo (Munich, Europe/Berlin)
+- Canteen: TUM‑Dev Eat API (falls forward up to 7 days; after 14:00 shows next day)
+- Transport: MVG via `mvg` Python package
+  - Types filter: `UBAHN, SBAHN, BUS, TRAM`
+
+## Deployment Notes & Troubleshooting
+
+- Local: always run `python -m playwright install chromium` after `pip install -r requirements.txt`
+- Heroku: ensure stack heroku‑24 and buildpacks `heroku-community/apt` then `heroku/python`
+- H12 timeouts: the snapshot route uses bounded waits; keep `limit` reasonable and avoid extremely small scales
+- Missing emojis: emojis are intentionally stripped in snapshots for e‑ink clarity
+
+## Optional E‑Ink Tuning
+
+For even cleaner e‑ink output you can quantize to ~16 gray levels with dithering (not enabled by default). You can add this in the Pillow post‑process or pre‑process with ImageMagick:
+
+```
+convert input.png -resize 600x800\! -colorspace Gray -dither FloydSteinberg -colors 16 -depth 8 PNG8:output.png
+```
+
+## Security
+
+- Set `IMAGE_PUSH_TOKEN` to require `?token=...` on `/image-push.png`.
+
+## License
+
+No license is declared in this repository.

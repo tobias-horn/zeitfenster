@@ -17,7 +17,7 @@
   <!-- Step 1: Welcome -->
   <div class="setup-step" id="step-1">
     <div class="tile setup-tile">
-      <h1>Welcome to CampusConnect!</h1>
+      <h1>Welcome!</h1>
       <p>Please take a couple of minutes to personalize your dashboard.</p>
       <div class="actions">
         <button id="start-setup">Let’s go</button>
@@ -29,6 +29,7 @@
   <div class="setup-step hidden" id="step-2">
     <div class="tile setup-tile">
       <h2>Transportation</h2>
+      <p class="help-text">Please select your closest public transportation station.</p>
       <label>Station</label>
       <input type="text" id="station-search" placeholder="Search station (e.g., Universität, München)" autocomplete="off" />
       <div id="station-results" class="results"></div>
@@ -45,10 +46,12 @@
         </div>
         <div>
           <label>Departure limit</label>
+          <p class="help-text">Number of public transport options to be displayed.</p>
           <input type="number" id="limit" min="1" max="20" value="4" />
         </div>
         <div>
-          <label>Offset minutes (walk)</label>
+          <label>Offset minutes</label>
+          <p class="help-text">Shifts departures by your walking time to the station.</p>
           <input type="number" id="offset" min="0" max="60" value="0" />
         </div>
       </div>
@@ -64,6 +67,7 @@
   <div class="setup-step hidden" id="step-3">
     <div class="tile setup-tile">
       <h2>Canteen</h2>
+      <p class="help-text">Please select your preferred canteen.</p>
       <label>Preferred canteen</label>
       <select id="canteen-select">
         <option value="">Loading…</option>

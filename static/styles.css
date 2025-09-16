@@ -9,10 +9,10 @@ h1 {
     color: #2c3e50;
 }
 
-h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 6px; font-weight: 700; }
-h2 { font-size: 1.3rem; line-height: 1.25; margin: 0 0 6px; font-weight: 700; }
-h3 { font-size: 1.1rem; line-height: 1.3; margin: 0 0 6px; font-weight: 700; }
-h4 { font-size: 1.0rem; line-height: 1.3; margin: 0 0 6px; font-weight: 700; }
+h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 6px; font-weight: 600; }
+h2 { font-size: 1.25rem; line-height: 1.25; margin: 0 0 6px; font-weight: 600; }
+h3 { font-size: 1.05rem; line-height: 1.3; margin: 0 0 6px; font-weight: 600; }
+h4 { font-size: 0.98rem; line-height: 1.3; margin: 0 0 6px; font-weight: 600; }
 
 ul {
     list-style-type: none;
@@ -32,7 +32,7 @@ em { color: #555; }
 /* Dashboard grid: top banner, then weather + transport, then full-width canteen */
 .dashboard-grid {
     display: grid;
-    gap: 12px;
+    gap: 10px;
     grid-template-columns: 1fr;
     grid-template-areas:
         "top"
@@ -58,11 +58,11 @@ em { color: #555; }
 .tile {
     border: 2px solid #000;
     border-radius: 8px;
-    padding: 12px;
+    padding: 10px;
 }
 
 .logo { max-width: 200px; }
-.timestamp { margin-top: 8px; font-size: 1.1em; }
+.timestamp { margin-top: 0; font-size: 1.1em; line-height: 1; }
 
 .current-temperature {
     font-size: 3em;
@@ -94,7 +94,7 @@ em { color: #555; }
 .dish-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); /* More compact */
-    gap: 12px;
+    gap: 10px;
 }
 
 .dish-box {
@@ -108,7 +108,9 @@ em { color: #555; }
 }
 
 .dish-title {
-    font-weight: bold;
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 1.15;
     white-space: nowrap;       
     overflow: hidden;          
     text-overflow: ellipsis;   
@@ -116,11 +118,18 @@ em { color: #555; }
     display: block;            
 }
 
+/* Price typography: smaller and slightly relaxed on web */
+.price-line { display: block; margin-top: 6px; font-size: 0.85rem; color: #333; }
+.price-line em { font-style: normal; color: #555; margin-right: 4px; }
+
 /* Transport departures table */
 .departures { width: 100%; border-collapse: collapse; }
 .departures th, .departures td { padding: 6px 8px; text-align: left; }
 .departures thead tr { border-bottom: 2px solid #000; }
 .departures tbody tr { border-top: 1px solid #000; }
+
+/* Subway-style line badge */
+.line-badge { display: inline-block; padding: 2px 6px; background: #000; color: #fff; border-radius: 0; font-weight: 700; line-height: 1; letter-spacing: 0.01em; }
 
 /* Header tile internals */
 .header-tile .header-inner { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: center; }
@@ -132,15 +141,17 @@ em { color: #555; }
 
 /* Top banner */
 .top-banner .top-banner-inner { display: flex; align-items: center; justify-content: space-between; }
-.top-banner .logo { max-width: 200px; }
 .top-banner .timestamp { font-size: 1.2rem; }
-.top-banner .subline { margin-top: 6px; color: #333; }
+.top-banner .app-title { margin: 0; font-size: 1.5rem; font-weight: 600; color: #000; }
+.top-banner .version { font-size: 0.85rem; font-weight: 500; color: #777; margin-left: 8px; letter-spacing: .01em; }
 
 /* Weather tile compact spacing */
-.weather-tile .data-wrapper { display: flex; gap: 12px; align-items: baseline; }
-.weather-tile .current-temperature { font-size: 2.6rem; }
-.weather-tile .max-min-wrapper p { margin: 0; }
-.weather-tile .extras { margin-top: 6px; gap: 10px; }
+.weather-tile .data-wrapper { display: flex; gap: 10px; align-items: baseline; }
+.weather-tile .current-temperature { font-size: 2.6rem; font-weight: 800; color: #000; }
+.weather-tile .max-min-wrapper p { margin: 0; font-size: 0.95rem; }
+.weather-tile .extras { margin-top: 4px; gap: 8px; }
+.weather-tile .extras .extra-item { font-size: 0.9rem; }
+.weather-tile .icon { width: 18px; height: 18px; }
 
 /* Canteen header inline date */
 .canteen-header-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 8px; }
@@ -159,6 +170,9 @@ em { color: #555; }
 .setup-step input[type=text],
 .setup-step input[type=number],
 .setup-step select { padding: 6px; border: 1px solid #000; border-radius: 4px; }
+.setup-step #station-search { width: 100%; box-sizing: border-box; }
+.setup-step #station-results { width: 100%; box-sizing: border-box; }
+.help-text { color: #555; margin: 4px 0 8px; font-size: 0.9rem; }
 .checkboxes { display: grid; grid-template-columns: repeat(2, auto); gap: 6px 16px; }
 .results { border: 1px solid #000; border-radius: 4px; max-height: 200px; overflow: auto; margin-top: 6px; }
 .result-item { padding: 6px 8px; cursor: pointer; }
@@ -213,6 +227,7 @@ body.kindle.orientation-portrait main > .setup-container {
 }
 /* Crisper, simplified tiles for e-ink */
 body.kindle .tile { border-radius: 0; }
-body.kindle .logo { max-width: 160px; }
+body.kindle .logo { max-width: 160px; filter: grayscale(1) brightness(0); }
+.logo { filter: grayscale(1) brightness(0); }
 body.kindle .current-temperature { font-size: 2.4rem; }
 body.kindle .departures th, body.kindle .departures td { padding: 4px 6px; }
