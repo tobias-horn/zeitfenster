@@ -147,46 +147,17 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
         )
         page = context.new_page()
         page.goto(url, wait_until="networkidle", timeout=30000)
-        # First, enforce exact canvas sizing and small inner padding
-        page.add_style_tag(content=f"""
-            html, body {{
-                margin: 0 !important;
-                padding: 8px !important; /* small border around tiles */
-                width: {width}px !important;
-                height: {height}px !important;
-                overflow: hidden !important;
-                background: #fff !important;
-                color: #000 !important;
-            }}
-            main {{ width: 100% !important; height: 100% !important; }}
-        """)
         # Ensure Twemoji library is present (inject if not already loaded)
         try:
             page.add_script_tag(url="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js")
         except Exception:
             pass
-        # Optional zoom to match DevTools zoomed-out view (e.g., 0.6)
+        # Optional zoom to match DevTools zoomed-out view (e.g., 0.6). Use CSS zoom to avoid layout shifts.
         if zoom is not None:
             try:
                 z = float(zoom)
                 if 0.1 <= z <= 2.0:
-                    page.evaluate(
-                        """
-                        (function(z){
-                          var root = document.querySelector('.dashboard-grid') || document.body;
-                          root.style.transformOrigin = 'top left';
-                          root.style.transform = 'scale(' + z + ')';
-                          // Expand layout area so scaled content fills the viewport exactly
-                          var cs = getComputedStyle(document.body);
-                          var padX = (parseInt(cs.paddingLeft)||0) + (parseInt(cs.paddingRight)||0);
-                          var padY = (parseInt(cs.paddingTop)||0) + (parseInt(cs.paddingBottom)||0);
-                          var W = Math.ceil((window.innerWidth - padX) / z);
-                          var H = Math.ceil((window.innerHeight - padY) / z);
-                          root.style.width = W + 'px';
-                          root.style.height = H + 'px';
-                        })(%f);
-                        """ % z
-                    )
+                    page.evaluate("document.documentElement.style.zoom=arguments[0]; document.body.style.zoom=arguments[0];", z)
             except Exception:
                 pass
         # Wait for fonts and async layout to settle
