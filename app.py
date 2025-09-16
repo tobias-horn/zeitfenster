@@ -152,14 +152,7 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
             page.add_script_tag(url="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js")
         except Exception:
             pass
-        # Optional zoom to match DevTools zoomed-out view (e.g., 0.6). Use CSS zoom to avoid layout shifts.
-        if zoom is not None:
-            try:
-                z = float(zoom)
-                if 0.1 <= z <= 2.0:
-                    page.evaluate("document.documentElement.style.zoom=arguments[0]; document.body.style.zoom=arguments[0];", z)
-            except Exception:
-                pass
+        # (Defer zoom until after fonts/images are ready; see below)
         # Wait for fonts and async layout to settle
         try:
             page.evaluate("return (document.fonts ? document.fonts.ready : Promise.resolve())")
@@ -176,6 +169,28 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
         except Exception:
             pass
         page.wait_for_timeout(300)
+        # Apply zoom via transform scale on the main grid so the scaled content still fills the viewport
+        if zoom is not None:
+            try:
+                z = float(zoom)
+                if 0.1 <= z <= 2.0:
+                    page.evaluate(
+                        """
+                        (function(z){
+                          var root = document.querySelector('.dashboard-grid') || document.body;
+                          root.style.transformOrigin = 'top left';
+                          root.style.transform = 'scale(' + z + ')';
+                          // Ensure scaled content fits exactly into the viewport dimensions
+                          var W = window.innerWidth;
+                          var H = window.innerHeight;
+                          root.style.width = Math.ceil(W / z) + 'px';
+                          root.style.height = Math.ceil(H / z) + 'px';
+                        })(arguments[0]);
+                        """,
+                        z,
+                    )
+            except Exception:
+                pass
         # Ensure white background for any transparent areas
         page.evaluate("document.documentElement.style.background='white'; document.body.style.background='white';")
         png_bytes = page.screenshot(type="png", full_page=False)
