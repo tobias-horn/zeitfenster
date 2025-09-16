@@ -22,6 +22,12 @@ try:
 except Exception:  # Defer import errors until the snapshot route is used
     sync_playwright = None
 
+# Timezone support (kept available if needed later)
+try:
+    from zoneinfo import ZoneInfo
+except Exception:  # pragma: no cover
+    ZoneInfo = None  # type: ignore
+
 app = Flask(__name__)
 
 @app.route('/')
@@ -140,45 +146,25 @@ def _render_dashboard_png(url: str, width: int, height: int) -> bytes:
             locale="de-DE",
         )
         page = context.new_page()
-        page.goto(url, wait_until="networkidle", timeout=25000)
-        # Normalize layout for exact canvas and better fidelity
-        page.add_style_tag(content=f"""
-            html, body {{
-                margin: 0 !important;
-                padding: 0 !important;
-                background: #fff !important;
-                color: #000 !important;
-                width: {width}px !important;
-                height: {height}px !important;
-                overflow: hidden !important;
-                font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif !important;
-            }}
-            main {{
-                width: {width}px !important;
-                height: {height}px !important;
-                display: flex !important;
-                align-items: stretch !important;
-                justify-content: stretch !important;
-            }}
-            .dashboard-grid {{
-                box-sizing: border-box !important;
-            }}
-            * {{
-                animation: none !important;
-                transition: none !important;
-            }}
-        """)
-        # If content would overflow, scale it down to fit the canvas
+        page.goto(url, wait_until="networkidle", timeout=30000)
+        # Wait for fonts and async layout to settle
+        try:
+            page.evaluate("return (document.fonts ? document.fonts.ready : Promise.resolve())")
+        except Exception:
+            pass
+        page.wait_for_timeout(1000)
+        # Scale the main grid to fit the exact viewport if needed (no cropping)
         page.evaluate(
             """
             (function() {
                 const targetW = %d, targetH = %d;
-                const grid = document.querySelector('.dashboard-grid') || document.body;
-                const rect = grid.getBoundingClientRect();
-                const scale = Math.min(targetW / Math.max(1, rect.width), targetH / Math.max(1, rect.height));
+                const el = document.querySelector('.dashboard-grid') || document.body;
+                const fullW = Math.max(el.scrollWidth, el.getBoundingClientRect().width);
+                const fullH = Math.max(el.scrollHeight, el.getBoundingClientRect().height);
+                const scale = Math.min(targetW / Math.max(1, fullW), targetH / Math.max(1, fullH));
                 if (scale < 1) {
-                    grid.style.transformOrigin = 'top left';
-                    grid.style.transform = 'scale(' + scale + ')';
+                    el.style.transformOrigin = 'top left';
+                    el.style.transform = 'scale(' + scale + ')';
                 }
             })();
             """ % (width, height)
@@ -255,7 +241,7 @@ def image_push():
         'limit': request.args.get('limit', '4'),
         'offset': request.args.get('offset', '0'),
     }
-    # Build absolute dashboard URL
+    # Build absolute dashboard URL (screenshot the main page)
     dash_url = url_for('index', _external=True) + '?' + urlencode(forward_params)
 
     # Cache key per URL and viewport
