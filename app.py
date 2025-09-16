@@ -133,7 +133,7 @@ KINDLE_LANDSCAPE = (800, 600)
 KINDLE_PORTRAIT = (600, 800)
 
 
-def _render_dashboard_png(url: str, width: int, height: int) -> bytes:
+def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | None = None) -> bytes:
     if sync_playwright is None:
         raise RuntimeError('Playwright is not installed. Add "playwright" to requirements and install browsers.')
     with sync_playwright() as p:
@@ -147,6 +147,27 @@ def _render_dashboard_png(url: str, width: int, height: int) -> bytes:
         )
         page = context.new_page()
         page.goto(url, wait_until="networkidle", timeout=30000)
+        # Optional zoom to match DevTools zoomed-out view (e.g., 0.6)
+        if zoom is not None:
+            try:
+                z = float(zoom)
+                if 0.1 <= z <= 2.0:
+                    page.evaluate(
+                        """
+                        (function(z){
+                          var root = document.querySelector('.dashboard-grid') || document.body;
+                          root.style.transformOrigin = 'top left';
+                          root.style.transform = 'scale(' + z + ')';
+                          // Expand layout area so scaled content fills the viewport exactly
+                          var W = Math.ceil(window.innerWidth / z);
+                          var H = Math.ceil(window.innerHeight / z);
+                          root.style.width = W + 'px';
+                          root.style.height = H + 'px';
+                        })(%f);
+                        """ % z
+                    )
+            except Exception:
+                pass
         # Force zero margins and exact canvas sizing in the capture context to avoid empty borders
         page.add_style_tag(content=f"""
             html, body {{
@@ -163,6 +184,11 @@ def _render_dashboard_png(url: str, width: int, height: int) -> bytes:
         # Wait for fonts and async layout to settle
         try:
             page.evaluate("return (document.fonts ? document.fonts.ready : Promise.resolve())")
+        except Exception:
+            pass
+        # Ensure Twemoji images are replaced when library is present
+        try:
+            page.evaluate("if (window.twemoji) twemoji.parse(document.body, {folder:'svg', ext:'.svg'})")
         except Exception:
             pass
         page.wait_for_timeout(300)
@@ -240,6 +266,14 @@ def image_push():
     if orientation not in ('landscape', 'portrait'):
         orientation = 'landscape'
     width, height = KINDLE_LANDSCAPE if orientation == 'landscape' else KINDLE_PORTRAIT
+    # Optional zoom control (e.g., ?zoom=0.6 for less zoom)
+    zoom_param = request.args.get('zoom')
+    zoom = None
+    if zoom_param:
+        try:
+            zoom = float(zoom_param)
+        except Exception:
+            zoom = None
 
     # Forward key params for dashboard rendering
     forward_params = {
@@ -260,7 +294,7 @@ def image_push():
         img = _IMG_CACHE['img']
     else:
         try:
-            img = _render_dashboard_png(dash_url, width, height)
+            img = _render_dashboard_png(dash_url, width, height, zoom=zoom)
         except Exception as e:
             # Return a PNG with the error text so Kindle shows something
             img = _render_error_png(width, height, str(e))
