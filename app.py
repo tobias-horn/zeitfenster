@@ -7,6 +7,7 @@ from transport import get_departures_for_station
 import datetime
 import os
 from urllib.parse import urlencode
+import math
 
 # Optional: Pillow for fallback PNG generation if Playwright fails
 try:
@@ -154,26 +155,28 @@ def _render_dashboard_png(url: str, width: int, height: int, *, zoom: float | No
                 page.wait_for_selector('.dashboard-grid', timeout=3000)
             except Exception:
                 pass
-            # Apply zoom via transform scale so scaled content still fills the viewport
+            # Wait for weather + transport data to populate (bounded)
+            try:
+                page.wait_for_function(
+                    """
+                    () => {
+                      const w = document.getElementById('current-temperature');
+                      const weatherOK = !!(w && /\d/.test((w.textContent||'').trim()));
+                      const b = document.getElementById('first-monitor-body');
+                      const transportOK = !!(b && b.querySelectorAll('tr').length && !b.textContent.includes('Wird geladen'));
+                      return weatherOK && transportOK;
+                    }
+                    """,
+                    timeout=7000,
+                )
+            except Exception:
+                pass
+            # Apply zoom using CSS zoom (no width/height compensation) to make content smaller/larger
             if zoom is not None:
                 try:
                     z = float(zoom)
                     if 0.1 <= z <= 2.0:
-                        page.evaluate(
-                            """
-                            (function(z){
-                              var root = document.querySelector('.dashboard-grid') || document.body;
-                              root.style.transformOrigin = 'top left';
-                              root.style.transform = 'scale(' + z + ')';
-                              // Ensure scaled content fits exactly into the viewport dimensions
-                              var W = window.innerWidth;
-                              var H = window.innerHeight;
-                              root.style.width = Math.ceil(W / z) + 'px';
-                              root.style.height = Math.ceil(H / z) + 'px';
-                            })(arguments[0]);
-                            """,
-                            z,
-                        )
+                        page.evaluate("document.documentElement.style.zoom=arguments[0]; document.body.style.zoom=arguments[0];", z)
                 except Exception:
                     pass
             # Remove emojis from text nodes for the image route only
