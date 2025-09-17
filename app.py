@@ -184,7 +184,7 @@ def _render_dashboard_png(
                 pass
             # Screenshot-only CSS tweaks (tighter price spacing/size for canteen items)
             try:
-                page.add_style_tag(content='''.price-line{font-size:0.80rem !important;margin-top:1px !important;}''')
+                page.add_style_tag(content='''.price-line{font-size:0.80rem !important;margin-top:1px !important;} .dish-title{margin-top:2px !important;margin-bottom:1px !important;}''')
             except Exception:
                 pass
             # Auto-fit height: if no explicit scale is provided, binary-search a viewport scale

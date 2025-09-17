@@ -110,6 +110,8 @@ em { color: #555; }
 .dish-title {
     font-weight: 600;
     font-size: 0.95rem;
+    margin-top: 4px;   /* more space from emoji above on web */
+    margin-bottom: 2px;/* slight space before price */
     line-height: 1.15;
     white-space: nowrap;       
     overflow: hidden;          
