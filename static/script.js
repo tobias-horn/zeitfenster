@@ -44,7 +44,7 @@ function updateWeather() {
                 // UV index and sunrise/sunset
                 const uvEl = document.getElementById('uv-index');
                 if (uvEl && data.uv_index_max !== undefined) {
-                    uvEl.textContent = `UV ${data.uv_day_label}: ${data.uv_index_max}`;
+                    uvEl.textContent = `${data.uv_index_max}`;
                 }
                 const sunriseEl = document.getElementById('sunrise');
                 const sunsetEl = document.getElementById('sunset');

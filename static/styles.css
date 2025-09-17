@@ -45,12 +45,14 @@ em { color: #555; }
    to account for default body margins. 776px = 800 - 2*12px */
 @media (min-width: 776px) {
     .dashboard-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 2fr 3fr; /* Weather ~40%, Transport ~60% */
         grid-template-areas:
             "top top"
             "weather transport"
             "canteen canteen";
     }
+    /* On wide layouts, stack UV/sun items vertically to save horizontal space */
+    .weather-right .extras { flex-direction: column; align-items: flex-start; gap: 6px; }
 }
 
 /* DASHBOARD HEADER STYLES */
@@ -151,9 +153,21 @@ em { color: #555; }
 .weather-tile .data-wrapper { display: flex; gap: 10px; align-items: baseline; }
 .weather-tile .current-temperature { font-size: 2.6rem; font-weight: 800; color: #000; }
 .weather-tile .max-min-wrapper p { margin: 0; font-size: 0.95rem; }
-.weather-tile .extras { margin-top: 4px; gap: 8px; }
+.weather-tile .extras { margin-top: 0; gap: 8px; display: flex; flex-wrap: wrap; }
 .weather-tile .extras .extra-item { font-size: 0.9rem; }
 .weather-tile .icon { width: 18px; height: 18px; }
+
+/* New flex layout for weather: left = current + H/L, right = UV/sun */
+.weather-flex { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.weather-left { display: flex; flex-direction: column; gap: 4px; }
+.weather-right { display: flex; align-items: flex-start; margin-top: 12px; padding-top: 0; border-top: 0; }
+
+/* Stack UV/sunrise/sunset vertically in wide layout next to temperature */
+@media (min-width: 776px) {
+  .weather-right .extras { display: block; }
+  .weather-right .extra-row { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 8px; row-gap: 4px; }
+  .weather-right { margin-top: 0; margin-left: 16px; padding-left: 0; border-left: 0; }
+}
 
 /* Canteen header inline date */
 .canteen-header-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 8px; }
