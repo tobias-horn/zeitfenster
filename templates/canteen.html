@@ -10,9 +10,18 @@
     </div>
     {% if canteen_data %}   
         {% if canteen_data.dishes %}
-            <div class="dish-container">
-                {% for dish in canteen_data.dishes %}
-                    {% if dish.dish_type not in ["Süßspeise", "Tagessupe, Brot, Obst", "Tagessuppe", "Brot", "Obst", "Dessert (Glas)"] %}
+            {% set excluded_types = [
+                "Süßspeise",
+                "Tagessupe, Brot, Obst",
+                "Tagessuppe",
+                "Brot",
+                "Obst",
+                "Dessert (Glas)"
+            ] %}
+            {% set filtered_dishes = canteen_data.dishes | rejectattr('dish_type', 'in', excluded_types) | list %}
+            {% if filtered_dishes %}
+                <div class="dish-container">
+                    {% for dish in filtered_dishes[:6] %}
                         <div class="dish-box">
                             <span>
                                 {% if dish.dish_type == "Pizza" %}🍕
@@ -42,9 +51,11 @@
                                 </span>
                             {% endif %}
                         </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p>No dishes available for today.</p>
+            {% endif %}
         {% else %}
             <p>No dishes available for today.</p>
         {% endif %}

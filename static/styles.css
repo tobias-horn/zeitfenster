@@ -1,5 +1,5 @@
 html {
-    font-size: 18px;
+    font-size: 20px;
 }
 
 body {
@@ -55,8 +55,6 @@ em { color: #555; }
             "weather transport"
             "canteen canteen";
     }
-    /* On wide layouts, stack UV/sun items vertically to save horizontal space */
-    .weather-right .extras { flex-direction: column; align-items: flex-start; gap: 6px; }
 }
 
 /* DASHBOARD HEADER STYLES */
@@ -157,21 +155,14 @@ em { color: #555; }
 .weather-tile .data-wrapper { display: flex; gap: 10px; align-items: baseline; }
 .weather-tile .current-temperature { font-size: 2.6rem; font-weight: 800; color: #000; }
 .weather-tile .max-min-wrapper p { margin: 0; font-size: 0.95rem; }
-.weather-tile .extras { margin-top: 0; gap: 8px; display: flex; flex-wrap: wrap; }
-.weather-tile .extras .extra-item { font-size: 0.9rem; }
+.weather-tile .extras { margin-top: 8px; display: grid; gap: 6px; }
+.weather-tile .extra-row { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 8px; font-size: 0.9rem; }
+.weather-tile .extra-label { display: flex; align-items: center; }
 .weather-tile .icon { width: 18px; height: 18px; }
 
-/* New flex layout for weather: left = current + H/L, right = UV/sun */
+/* Weather tile layout */
 .weather-flex { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
-.weather-left { display: flex; flex-direction: column; gap: 4px; }
-.weather-right { display: flex; align-items: flex-start; margin-top: 12px; padding-top: 0; border-top: 0; }
-
-/* Stack UV/sunrise/sunset vertically in wide layout next to temperature */
-@media (min-width: 776px) {
-  .weather-right .extras { display: block; }
-  .weather-right .extra-row { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 8px; row-gap: 4px; }
-  .weather-right { margin-top: 0; margin-left: 16px; padding-left: 0; border-left: 0; }
-}
+.weather-left { display: flex; flex-direction: column; gap: 6px; }
 
 /* Canteen header inline date */
 .canteen-header-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 8px; }
