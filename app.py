@@ -187,6 +187,10 @@ def _render_dashboard_png(
                 page.add_style_tag(content='''.price-line{font-size:0.80rem !important;margin-top:1px !important;} .dish-title{margin-top:2px !important;margin-bottom:1px !important;}''')
             except Exception:
                 pass
+            try:
+                page.add_style_tag(content='html{font-size:22px !important;} body{font-size:22px !important;}')
+            except Exception:
+                pass
             # Auto-fit height: if no explicit scale is provided, binary-search a viewport scale
             # so that the measured content height matches the target height within 1px.
             if zoom is None:

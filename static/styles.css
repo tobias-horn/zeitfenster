@@ -1,6 +1,4 @@
-html {
-    font-size: 20px;
-}
+
 
 body {
     font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
@@ -155,8 +153,8 @@ em { color: #555; }
 .weather-tile .data-wrapper { display: flex; gap: 10px; align-items: baseline; }
 .weather-tile .current-temperature { font-size: 2.6rem; font-weight: 800; color: #000; }
 .weather-tile .max-min-wrapper p { margin: 0; font-size: 0.95rem; }
-.weather-tile .extras { margin-top: 8px; display: grid; gap: 6px; }
-.weather-tile .extra-row { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 8px; font-size: 0.9rem; }
+.weather-tile .extras { margin-top: 8px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.weather-tile .extra-row { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; }
 .weather-tile .extra-label { display: flex; align-items: center; }
 .weather-tile .icon { width: 18px; height: 18px; }
 
