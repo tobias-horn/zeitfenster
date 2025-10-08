@@ -326,12 +326,22 @@ def _render_dashboard_png(
                           t.nodeValue = t.nodeValue.replace(emojiRe, '').replace(/\s{2,}/g,' ').trim();
                         }
                       });
-                      // Hide empty spans that only held emojis
+                      // Hide spans that became empty AND do not contain any child elements (keep icon-only spans)
                       Array.from(document.querySelectorAll('span')).forEach(function(el){
-                        if (!el.textContent || !el.textContent.trim()) { el.style.display = 'none'; }
+                        var hasText = !!(el.textContent && el.textContent.trim());
+                        var hasChildren = el.children && el.children.length > 0;
+                        if (!hasText && !hasChildren) { el.style.display = 'none'; }
                       });
                     })();
                     """
+                )
+            except Exception:
+                pass
+            # Ensure weather icons (UV/sunrise/sunset) are loaded before capture
+            try:
+                page.wait_for_function(
+                    "(() => { const imgs = Array.from(document.querySelectorAll('.weather-tile img.icon')); if (!imgs.length) return true; return imgs.every(img => img.complete && img.naturalWidth > 0); })()",
+                    timeout=3000,
                 )
             except Exception:
                 pass
