@@ -22,6 +22,13 @@ def _to_local(dt_str: str, tzname: str = "Europe/Berlin") -> datetime:
         return datetime.utcnow()
 
 
+def _round_temperature(value):
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return value
+
+
 def get_weather_data():
     meteo_url = (
         "https://api.open-meteo.com/v1/forecast"
@@ -37,7 +44,7 @@ def get_weather_data():
         data = response.json()
 
         # Extract current temperature
-        current_temperature = data['current']['temperature_2m']
+        current_temperature = _round_temperature(data['current']['temperature_2m'])
 
         daily = data['daily']
 
@@ -48,8 +55,8 @@ def get_weather_data():
         today_sunset = _to_local(daily['sunset'][0], tzname)
         use_idx = 1 if now_local > today_sunset else 0
 
-        max_temp = daily['temperature_2m_max'][0]
-        min_temp = daily['temperature_2m_min'][0]
+        max_temp = _round_temperature(daily['temperature_2m_max'][0])
+        min_temp = _round_temperature(daily['temperature_2m_min'][0])
 
         uv_index = daily['uv_index_max'][use_idx]
         uv_day_label = 'Morgen' if use_idx == 1 else 'Heute'
