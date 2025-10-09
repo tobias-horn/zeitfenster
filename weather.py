@@ -50,7 +50,7 @@ def get_weather_data():
         return cached_data
 
     try:
-        response = requests.get(meteo_url, timeout=5)
+        response = requests.get(meteo_url)
         response.raise_for_status()
         data = response.json()
 
