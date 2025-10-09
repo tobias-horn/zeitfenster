@@ -35,6 +35,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
+    _warm_start()
     # Show setup wizard if required params are missing
     if not request.args.get('station') or not request.args.get('canteen'):
         return render_template('setup.html', hide_chrome=True)
@@ -532,6 +533,7 @@ def _render_error_png(width: int, height: int, message: str) -> bytes:
 
 @app.get('/image-push.png')
 def image_push():
+    _warm_start()
     # Optional token protection
     token_required = os.getenv('IMAGE_PUSH_TOKEN')
     if token_required:
@@ -563,6 +565,16 @@ def image_push():
         'limit': request.args.get('limit', '4'),
         'offset': request.args.get('offset', '0'),
     }
+    canteen_key = forward_params['canteen']
+    if canteen_key:
+        try:
+            get_todays_menu(canteen_key)
+        except Exception as exc:
+            print(f"Canteen prefetch failed: {exc}")
+    try:
+        get_weather_data()
+    except Exception as exc:
+        print(f"Weather prefetch failed: {exc}")
     # Build absolute dashboard URL (screenshot the main page)
     dash_url = url_for('index', _external=True) + '?' + urlencode(forward_params)
 
@@ -646,13 +658,5 @@ def _warm_start():
         get_todays_menu()
     except Exception as exc:
         print(f"Canteen warm start failed: {exc}")
-
-def _schedule_warm_start():
-    try:
-        threading.Thread(target=_warm_start, daemon=True).start()
-    except Exception as exc:
-        print(f"Warm start scheduling failed: {exc}")
-
-_schedule_warm_start()
 if __name__ == '__main__':
     app.run(debug=True)
