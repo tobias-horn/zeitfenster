@@ -2,6 +2,7 @@
 
 import requests
 from datetime import datetime
+import time
 
 try:
     # Python 3.9+
@@ -29,6 +30,10 @@ def _round_temperature(value):
         return value
 
 
+_WEATHER_CACHE = {'data': None, 'ts': 0.0}
+_WEATHER_TTL_SECONDS = 600  # 10 minutes
+
+
 def get_weather_data():
     meteo_url = (
         "https://api.open-meteo.com/v1/forecast"
@@ -37,6 +42,12 @@ def get_weather_data():
         "&daily=temperature_2m_max,temperature_2m_min,uv_index_max,sunrise,sunset"
         "&timezone=Europe%2FBerlin&forecast_days=2"
     )
+
+    cached_data = _WEATHER_CACHE.get('data')
+    cache_ts = _WEATHER_CACHE.get('ts', 0.0)
+    now_ts = time.time()
+    if cached_data is not None and (now_ts - cache_ts) < _WEATHER_TTL_SECONDS:
+        return cached_data
 
     try:
         response = requests.get(meteo_url)
@@ -75,11 +86,16 @@ def get_weather_data():
             'sunset': sunset,
         }
 
+        _WEATHER_CACHE.update({'data': weather_data, 'ts': time.time()})
         return weather_data
 
     except requests.RequestException as e:
         print(f"Error fetching weather data: {e}")
+        if cached_data is not None:
+            return cached_data
         return None
     except KeyError as e:
         print(f"Key error: {e}")
+        if cached_data is not None:
+            return cached_data
         return None

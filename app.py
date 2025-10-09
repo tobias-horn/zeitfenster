@@ -8,6 +8,7 @@ import datetime
 import os
 from urllib.parse import urlencode
 import math
+import threading
 
 # Optional: Pillow for fallback PNG generation if Playwright fails
 try:
@@ -133,6 +134,49 @@ _IMG_CACHE = {
 KINDLE_LANDSCAPE = (800, 600)
 KINDLE_PORTRAIT = (600, 800)
 
+_PLAYWRIGHT_LOCK = threading.Lock()
+_PLAYWRIGHT_INSTANCE = None
+_BROWSER_INSTANCE = None
+_WARM_LOCK = threading.Lock()
+_WARM_TRIGGERED = False
+
+
+def _reset_browser():
+    global _PLAYWRIGHT_INSTANCE, _BROWSER_INSTANCE
+    try:
+        if _BROWSER_INSTANCE is not None:
+            _BROWSER_INSTANCE.close()
+    except Exception:
+        pass
+    _BROWSER_INSTANCE = None
+    try:
+        if _PLAYWRIGHT_INSTANCE is not None:
+            _PLAYWRIGHT_INSTANCE.stop()
+    except Exception:
+        pass
+    _PLAYWRIGHT_INSTANCE = None
+
+
+def _get_browser():
+    global _PLAYWRIGHT_INSTANCE, _BROWSER_INSTANCE
+    if sync_playwright is None:
+        raise RuntimeError('Playwright is not installed. Add "playwright" to requirements and install browsers.')
+    if _BROWSER_INSTANCE is not None:
+        return _BROWSER_INSTANCE
+    with _PLAYWRIGHT_LOCK:
+        if _BROWSER_INSTANCE is not None:
+            return _BROWSER_INSTANCE
+        try:
+            _PLAYWRIGHT_INSTANCE = sync_playwright().start()
+            _BROWSER_INSTANCE = _PLAYWRIGHT_INSTANCE.chromium.launch(
+                args=["--no-sandbox", "--disable-setuid-sandbox"],
+                headless=True,
+            )
+        except Exception:
+            _reset_browser()
+            raise
+    return _BROWSER_INSTANCE
+
 
 def _render_dashboard_png(
     url: str,
@@ -164,15 +208,25 @@ def _render_dashboard_png(
     if render_w * render_h > 1600 * 1200:
         dsf = 1
 
-    with sync_playwright() as p:
-        # Launch Chromium; rely on Playwright-managed browser
-        browser = p.chromium.launch(args=["--no-sandbox", "--disable-setuid-sandbox"], headless=True)
-        context = browser.new_context(
-            viewport={"width": render_w, "height": render_h},
-            device_scale_factor=dsf,
-            timezone_id="Europe/Berlin",
-            locale="de-DE",
-        )
+    browser = _get_browser()
+    context = None
+    try:
+        try:
+            context = browser.new_context(
+                viewport={"width": render_w, "height": render_h},
+                device_scale_factor=dsf,
+                timezone_id="Europe/Berlin",
+                locale="de-DE",
+            )
+        except Exception:
+            _reset_browser()
+            browser = _get_browser()
+            context = browser.new_context(
+                viewport={"width": render_w, "height": render_h},
+                device_scale_factor=dsf,
+                timezone_id="Europe/Berlin",
+                locale="de-DE",
+            )
         page = context.new_page()
         try:
             # Use a conservative wait to avoid H12 timeouts; the page loads its own data via JS
@@ -196,7 +250,7 @@ def _render_dashboard_png(
             if zoom is None:
                 try:
                     target_h = float(height)
-                    # Helper: measure content height (max of doc + root box + scrollHeight)
+
                     def measure():
                         return page.evaluate(
                             "(() => {\n"
@@ -207,6 +261,7 @@ def _render_dashboard_png(
                             "  return Math.ceil(Math.max(docH, rootH));\n"
                             "})()"
                         )
+
                     # Binary search scale in [0.5, 1.5]
                     lo, hi = 0.5, 1.5
                     best_s, best_err = 1.0, 10**9
@@ -319,7 +374,7 @@ def _render_dashboard_png(
                     """
                     (function(){
                       var emojiRe;
-                      try { emojiRe = new RegExp('[\\\p{Extended_Pictographic}\\uFE0F\\u200D]','gu'); }
+                      try { emojiRe = new RegExp('[\\\\p{Extended_Pictographic}\\uFE0F\\u200D]','gu'); }
                       catch(e) { emojiRe = /[\u231A-\u231B\u23E9-\u23EC\u23F0\u23F3\u25FD-\u25FE\u2600-\u27BF\u2934-\u2935\u2B05-\u2B07\u3030\u303D\u3297\u3299\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff]|\ufe0f|\u200d/g; }
                       var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
                       var nodes = [];
@@ -327,7 +382,7 @@ def _render_dashboard_png(
                       while ((n = walker.nextNode())) { nodes.push(n); }
                       nodes.forEach(function(t){
                         if (emojiRe.test(t.nodeValue)) {
-                          t.nodeValue = t.nodeValue.replace(emojiRe, '').replace(/\s{2,}/g,' ').trim();
+                          t.nodeValue = t.nodeValue.replace(emojiRe, '').replace(/\\s{2,}/g,' ').trim();
                         }
                       });
                       // Hide spans that became empty AND do not contain any child elements (keep icon-only spans)
@@ -355,36 +410,35 @@ def _render_dashboard_png(
             page.evaluate("document.documentElement.style.background='white'; document.body.style.background='white';")
             png_bytes = page.screenshot(type="png", full_page=False)
         finally:
-            # Always close to avoid TargetClosedError leaks
-            try:
-                context.close()
-            except Exception:
-                pass
-            try:
-                browser.close()
-            except Exception:
-                pass
+            if context is not None:
+                try:
+                    context.close()
+                except Exception:
+                    pass
+    except Exception:
+        _reset_browser()
+        raise
 
-        # Post-process with Pillow: ensure exact size and 8-bit grayscale, non-interlaced
-        if Image is not None:
-            try:
-                from io import BytesIO
-                im = Image.open(BytesIO(png_bytes))
-                # Resize to exact target size regardless of render viewport
-                if im.size != (width, height):
-                    im = im.resize((width, height), Image.LANCZOS)
-                # Convert to 8-bit grayscale (Kindle-friendly: color type 0, no alpha)
-                if im.mode != 'L':
-                    im = im.convert('L')
-                out = BytesIO()
-                # Save non-interlaced PNG by default (no alpha, no exotic chunks)
-                im.save(out, format='PNG', optimize=True)
-                png_bytes = out.getvalue()
-            except Exception:
-                # If Pillow fails, fall back to original screenshot
-                pass
+    # Post-process with Pillow: ensure exact size and 8-bit grayscale, non-interlaced
+    if Image is not None:
+        try:
+            from io import BytesIO
+            im = Image.open(BytesIO(png_bytes))
+            # Resize to exact target size regardless of render viewport
+            if im.size != (width, height):
+                im = im.resize((width, height), Image.LANCZOS)
+            # Convert to 8-bit grayscale (Kindle-friendly: color type 0, no alpha)
+            if im.mode != 'L':
+                im = im.convert('L')
+            out = BytesIO()
+            # Save non-interlaced PNG by default (no alpha, no exotic chunks)
+            im.save(out, format='PNG', optimize=True)
+            png_bytes = out.getvalue()
+        except Exception:
+            # If Pillow fails, fall back to original screenshot
+            pass
 
-        return png_bytes
+    return png_bytes
 
 
 def _render_error_png(width: int, height: int, message: str) -> bytes:
@@ -523,5 +577,32 @@ def image_push():
     resp.headers['X-Render-Viewport'] = f"{render_w}x{render_h}"
     return resp
 
+
+def _warm_start():
+    global _WARM_TRIGGERED
+    with _WARM_LOCK:
+        if _WARM_TRIGGERED:
+            return
+        _WARM_TRIGGERED = True
+    try:
+        _get_browser()
+    except Exception as exc:
+        print(f"Playwright warm start failed: {exc}")
+    try:
+        get_weather_data()
+    except Exception as exc:
+        print(f"Weather warm start failed: {exc}")
+    try:
+        get_todays_menu()
+    except Exception as exc:
+        print(f"Canteen warm start failed: {exc}")
+
+def _schedule_warm_start():
+    try:
+        threading.Thread(target=_warm_start, daemon=True).start()
+    except Exception as exc:
+        print(f"Warm start scheduling failed: {exc}")
+
+_schedule_warm_start()
 if __name__ == '__main__':
     app.run(debug=True)

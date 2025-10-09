@@ -2,7 +2,11 @@
 
 import requests
 from datetime import datetime, timedelta
+import time
 import config
+
+_MENU_CACHE = {}
+_MENU_CACHE_TTL_SECONDS = 3600  # 1 hour
 
 def get_current_date_info():
     today = datetime.now()
@@ -35,6 +39,14 @@ def get_todays_menu(canteen_key: str | None = None):
     if not canteen_key:
         canteen_key = getattr(config, 'CANTEEN_KEY', 'mensa-garching')
 
+    target_date_str = date_obj.strftime('%Y-%m-%d')
+    cache_key = (canteen_key, target_date_str)
+    cache_entry = _MENU_CACHE.get(cache_key)
+    stale_data = cache_entry.get('data') if cache_entry else None
+    now_ts = time.time()
+    if cache_entry and (now_ts - cache_entry.get('ts', 0.0)) < _MENU_CACHE_TTL_SECONDS:
+        return cache_entry.get('data')
+
     while attempts < max_attempts:
         date_str = date_obj.strftime('%Y-%m-%d')
         year = date_obj.year
@@ -62,6 +74,7 @@ def get_todays_menu(canteen_key: str | None = None):
                         'date': date_str,
                         'dishes': dishes
                     }
+                    _MENU_CACHE[cache_key] = {'ts': time.time(), 'data': canteen_data}
                     return canteen_data
         # If not found, increment date_obj by one day
         date_obj += timedelta(days=1)
@@ -69,6 +82,8 @@ def get_todays_menu(canteen_key: str | None = None):
 
     # After max_attempts days, if no menu found
     print("No available menu found in the next 7 days.")
+    if stale_data is not None:
+        return stale_data
     return None
 
 def get_canteen_name(canteen_key):
