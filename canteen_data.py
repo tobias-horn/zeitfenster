@@ -16,7 +16,7 @@ def get_current_date_info():
 def fetch_menu_for_key(canteen_key, year, week_num):
     url = f"https://tum-dev.github.io/eat-api/{canteen_key}/{year}/{week_num:02d}.json"
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=5)
         response.raise_for_status()
         menu_data = response.json()
         return menu_data
@@ -89,7 +89,7 @@ def get_todays_menu(canteen_key: str | None = None):
 def get_canteen_name(canteen_key):
     url = "https://tum-dev.github.io/eat-api/enums/canteens.json"
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=5)
         response.raise_for_status()
         canteens = response.json()
         
@@ -107,7 +107,7 @@ def list_canteens():
     """Return list of canteens as [{'id': key, 'name': name}, ...]."""
     url = "https://tum-dev.github.io/eat-api/enums/canteens.json"
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=5)
         response.raise_for_status()
         canteens = response.json()
         out = []
