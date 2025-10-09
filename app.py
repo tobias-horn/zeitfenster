@@ -9,6 +9,7 @@ import os
 from urllib.parse import urlencode
 import math
 import threading
+import time
 
 # Optional: Pillow for fallback PNG generation if Playwright fails
 try:
@@ -139,6 +140,9 @@ _PLAYWRIGHT_INSTANCE = None
 _BROWSER_INSTANCE = None
 _WARM_LOCK = threading.Lock()
 _WARM_TRIGGERED = False
+_HEARTBEAT_LOCK = threading.Lock()
+_HEARTBEAT_STARTED = False
+_BROWSER_HEARTBEAT_INTERVAL = 240  # seconds
 
 
 def _reset_browser():
@@ -176,6 +180,46 @@ def _get_browser():
             _reset_browser()
             raise
     return _BROWSER_INSTANCE
+
+
+def _browser_heartbeat_loop():
+    while True:
+        ctx = None
+        try:
+            browser = _get_browser()
+            ctx = browser.new_context()
+            try:
+                page = ctx.new_page()
+                page.close()
+            except Exception:
+                pass
+        except Exception as exc:
+            try:
+                _reset_browser()
+            except Exception:
+                pass
+            print(f"Browser heartbeat failed: {exc}")
+        finally:
+            if ctx is not None:
+                try:
+                    ctx.close()
+                except Exception:
+                    pass
+            time.sleep(_BROWSER_HEARTBEAT_INTERVAL)
+
+
+def _start_browser_heartbeat():
+    global _HEARTBEAT_STARTED
+    with _HEARTBEAT_LOCK:
+        if _HEARTBEAT_STARTED:
+            return
+        _HEARTBEAT_STARTED = True
+    try:
+        threading.Thread(target=_browser_heartbeat_loop, daemon=True).start()
+    except Exception as exc:
+        with _HEARTBEAT_LOCK:
+            _HEARTBEAT_STARTED = False
+        print(f"Browser heartbeat scheduling failed: {exc}")
 
 
 def _render_dashboard_png(
@@ -602,6 +646,7 @@ def _schedule_warm_start():
         threading.Thread(target=_warm_start, daemon=True).start()
     except Exception as exc:
         print(f"Warm start scheduling failed: {exc}")
+    _start_browser_heartbeat()
 
 _schedule_warm_start()
 if __name__ == '__main__':
