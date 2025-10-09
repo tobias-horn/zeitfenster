@@ -230,7 +230,7 @@ def _render_dashboard_png(
         page = context.new_page()
         try:
             # Use a conservative wait to avoid H12 timeouts; the page loads its own data via JS
-            page.goto(url, wait_until="domcontentloaded", timeout=15000)
+            page.goto(url, wait_until="domcontentloaded", timeout=20000)
             # Wait for the dashboard shell to be present (but don't block for long)
             try:
                 page.wait_for_selector('.dashboard-grid', timeout=3000)
