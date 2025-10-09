@@ -140,13 +140,12 @@ _PLAYWRIGHT_INSTANCE = None
 _BROWSER_INSTANCE = None
 _WARM_LOCK = threading.Lock()
 _WARM_TRIGGERED = False
-_HEARTBEAT_LOCK = threading.Lock()
-_HEARTBEAT_STARTED = False
-_BROWSER_HEARTBEAT_INTERVAL = 240  # seconds
+_BROWSER_KEEPALIVE_INTERVAL = 240  # seconds
+_BROWSER_LAST_PING = 0.0
 
 
 def _reset_browser():
-    global _PLAYWRIGHT_INSTANCE, _BROWSER_INSTANCE
+    global _PLAYWRIGHT_INSTANCE, _BROWSER_INSTANCE, _BROWSER_LAST_PING
     try:
         if _BROWSER_INSTANCE is not None:
             _BROWSER_INSTANCE.close()
@@ -159,6 +158,7 @@ def _reset_browser():
     except Exception:
         pass
     _PLAYWRIGHT_INSTANCE = None
+    _BROWSER_LAST_PING = 0.0
 
 
 def _get_browser():
@@ -182,44 +182,25 @@ def _get_browser():
     return _BROWSER_INSTANCE
 
 
-def _browser_heartbeat_loop():
-    while True:
-        ctx = None
-        try:
-            browser = _get_browser()
-            ctx = browser.new_context()
-            try:
-                page = ctx.new_page()
-                page.close()
-            except Exception:
-                pass
-        except Exception as exc:
-            try:
-                _reset_browser()
-            except Exception:
-                pass
-            print(f"Browser heartbeat failed: {exc}")
-        finally:
-            if ctx is not None:
-                try:
-                    ctx.close()
-                except Exception:
-                    pass
-            time.sleep(_BROWSER_HEARTBEAT_INTERVAL)
-
-
-def _start_browser_heartbeat():
-    global _HEARTBEAT_STARTED
-    with _HEARTBEAT_LOCK:
-        if _HEARTBEAT_STARTED:
-            return
-        _HEARTBEAT_STARTED = True
+def _ensure_browser_alive(browser):
+    global _BROWSER_LAST_PING
+    now = time.time()
+    if (now - _BROWSER_LAST_PING) < _BROWSER_KEEPALIVE_INTERVAL:
+        return
+    ctx = None
     try:
-        threading.Thread(target=_browser_heartbeat_loop, daemon=True).start()
-    except Exception as exc:
-        with _HEARTBEAT_LOCK:
-            _HEARTBEAT_STARTED = False
-        print(f"Browser heartbeat scheduling failed: {exc}")
+        ctx = browser.new_context()
+        _BROWSER_LAST_PING = now
+    except BaseException as exc:
+        _reset_browser()
+        print(f"Browser keepalive failed: {exc}")
+        raise
+    finally:
+        if ctx is not None:
+            try:
+                ctx.close()
+            except Exception:
+                pass
 
 
 def _render_dashboard_png(
@@ -232,6 +213,12 @@ def _render_dashboard_png(
 ) -> bytes:
     if sync_playwright is None:
         raise RuntimeError('Playwright is not installed. Add "playwright" to requirements and install browsers.')
+    render_start = time.time()
+
+    def _check_budget():
+        if (time.time() - render_start) > 25:
+            raise TimeoutError("Screenshot render exceeded 25s budget")
+
     # Compute render viewport from desired scale (zoom). We render larger for zoom<1
     # and smaller for zoom>1, then resize back to the exact target size.
     eff_scale = 1.0
@@ -256,25 +243,37 @@ def _render_dashboard_png(
     context = None
     try:
         try:
-            context = browser.new_context(
-                viewport={"width": render_w, "height": render_h},
-                device_scale_factor=dsf,
-                timezone_id="Europe/Berlin",
-                locale="de-DE",
-            )
+            _ensure_browser_alive(browser)
         except Exception:
             _reset_browser()
             browser = _get_browser()
+            _ensure_browser_alive(browser)
+        try:
+            global _BROWSER_LAST_PING
             context = browser.new_context(
                 viewport={"width": render_w, "height": render_h},
                 device_scale_factor=dsf,
                 timezone_id="Europe/Berlin",
                 locale="de-DE",
             )
+            _BROWSER_LAST_PING = time.time()
+        except Exception:
+            _reset_browser()
+            browser = _get_browser()
+            _ensure_browser_alive(browser)
+            context = browser.new_context(
+                viewport={"width": render_w, "height": render_h},
+                device_scale_factor=dsf,
+                timezone_id="Europe/Berlin",
+                locale="de-DE",
+            )
+            _BROWSER_LAST_PING = time.time()
+        _check_budget()
         page = context.new_page()
         try:
             # Use a conservative wait to avoid H12 timeouts; the page loads its own data via JS
             page.goto(url, wait_until="domcontentloaded", timeout=20000)
+            _check_budget()
             # Wait for the dashboard shell to be present (but don't block for long)
             try:
                 page.wait_for_selector('.dashboard-grid', timeout=3000)
@@ -333,11 +332,13 @@ def _render_dashboard_png(
                     page.wait_for_timeout(100)
                 except Exception:
                     pass
+            _check_budget()
             # Ensure web fonts are loaded for consistent typography
             try:
                 page.evaluate("return (document.fonts ? document.fonts.ready : Promise.resolve())")
             except Exception:
                 pass
+            _check_budget()
             # Wait for weather + transport data to populate (bounded)
             try:
                 # Weather: wait until current temperature shows a digit
@@ -368,6 +369,7 @@ def _render_dashboard_png(
                 )
             except Exception:
                 pass
+            _check_budget()
             # Compute and apply precise visual scale using browser zoom/transform (no app code changes)
             try:
                 # Decide desired scale: explicit override or auto-fit to target height
@@ -412,6 +414,7 @@ def _render_dashboard_png(
                         z = z2
             except Exception:
                 pass
+            _check_budget()
             # Remove emojis from text nodes for the image route only
             try:
                 page.evaluate(
@@ -440,6 +443,7 @@ def _render_dashboard_png(
                 )
             except Exception:
                 pass
+            _check_budget()
             # Ensure weather icons (UV/sunrise/sunset) are loaded before capture
             try:
                 page.wait_for_function(
@@ -448,10 +452,12 @@ def _render_dashboard_png(
                 )
             except Exception:
                 pass
+            _check_budget()
             # Minimal settle
             page.wait_for_timeout(250)
             # Ensure white background for any transparent areas
             page.evaluate("document.documentElement.style.background='white'; document.body.style.background='white';")
+            _check_budget()
             png_bytes = page.screenshot(type="png", full_page=False)
         finally:
             if context is not None:
@@ -577,8 +583,8 @@ def image_push():
                 expected_rows = 4
             expected_rows = max(1, min(12, expected_rows))
             img = _render_dashboard_png(dash_url, width, height, zoom=zoom, expected_rows=expected_rows)
-        except Exception as e:
-            # Return a PNG with the error text so Kindle shows something
+        except BaseException as e:
+            print(f"image_push render failed: {e}")
             img = _render_error_png(width, height, str(e))
         # Rotate landscape content so delivered image is portrait
         if orientation == 'landscape' and Image is not None and img:
@@ -646,7 +652,6 @@ def _schedule_warm_start():
         threading.Thread(target=_warm_start, daemon=True).start()
     except Exception as exc:
         print(f"Warm start scheduling failed: {exc}")
-    _start_browser_heartbeat()
 
 _schedule_warm_start()
 if __name__ == '__main__':
