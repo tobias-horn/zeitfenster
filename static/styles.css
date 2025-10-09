@@ -164,7 +164,7 @@ em { color: #555; }
 
 /* Canteen header inline date */
 .canteen-header-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.canteen-header-line .menu-date { color: #555; }
+.canteen-header-line .menu-date { color: #555; font-size: 0.85rem; }
 
 /* Setup wizard */
 .setup-container { display: grid; gap: 12px; }
