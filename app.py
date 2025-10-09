@@ -272,8 +272,8 @@ def _render_dashboard_png(
         _check_budget()
         page = context.new_page()
         try:
-            # Use a conservative wait to avoid H12 timeouts; the page loads its own data via JS
-            page.goto(url, wait_until="domcontentloaded", timeout=20000)
+            # Navigate to the dashboard; rely on follow-up waits instead of DOMContentLoaded
+            page.goto(url, wait_until="commit", timeout=20000)
             _check_budget()
             # Wait for the dashboard shell to be present (but don't block for long)
             try:
@@ -575,8 +575,10 @@ def image_push():
         get_weather_data()
     except Exception as exc:
         print(f"Weather prefetch failed: {exc}")
-    # Build absolute dashboard URL (screenshot the main page)
-    dash_url = url_for('index', _external=True) + '?' + urlencode(forward_params)
+    # Build loopback dashboard URL (avoid Heroku router latency for internal render)
+    port = os.environ.get('PORT', '5000')
+    base_url = f"http://127.0.0.1:{port}"
+    dash_url = base_url + url_for('index') + '?' + urlencode(forward_params)
 
     # Cache key per URL, viewport, and zoom
     cache_key = f"{dash_url}|{width}x{height}|scale={zoom if zoom is not None else 'none'}"
