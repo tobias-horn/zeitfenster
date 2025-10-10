@@ -597,9 +597,17 @@ def image_push():
                 expected_rows = 4
             expected_rows = max(1, min(12, expected_rows))
             img = _render_dashboard_png(dash_url, width, height, zoom=zoom, expected_rows=expected_rows)
-        except BaseException as e:
-            print(f"image_push render failed: {e}")
-            img = _render_error_png(width, height, str(e))
+        except BaseException as exc:
+            exc_class = getattr(exc, "__class__", type(exc))
+            is_timeout = isinstance(exc, TimeoutError) or getattr(exc_class, "__name__", "") == "TimeoutError"
+            if is_timeout:
+                app.logger.error("image_push timeout: %s", exc, exc_info=True)
+                resp = make_response("Render timeout", 504)
+            else:
+                app.logger.exception("image_push render failed")
+                resp = make_response("Render failed", 500)
+            resp.headers['Content-Type'] = 'text/plain; charset=utf-8'
+            return resp
         # Rotate landscape content so delivered image is portrait
         if orientation == 'landscape' and Image is not None and img:
             try:
