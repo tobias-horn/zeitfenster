@@ -1,5 +1,6 @@
 import time
-from typing import List, Optional, Dict, Any
+from functools import lru_cache
+from typing import List, Optional, Dict, Any, Tuple
 
 try:
     # mvg is provided via https://pypi.org/project/mvg/
@@ -81,3 +82,22 @@ def get_departures_for_station(
             break
 
     return simplified
+
+
+@lru_cache(maxsize=128)
+def get_station_coordinates(station_query: str) -> Optional[Tuple[float, float]]:
+    """Resolve a station query to latitude/longitude using MVG metadata."""
+    if not station_query or MvgApi is None:
+        return None
+    try:
+        station = MvgApi.station(station_query)
+    except Exception:
+        return None
+    if not station:
+        return None
+    lat = station.get('lat') or station.get('latitude')
+    lon = station.get('lon') or station.get('longitude')
+    try:
+        return float(lat), float(lon)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None

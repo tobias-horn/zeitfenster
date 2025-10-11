@@ -30,7 +30,9 @@ startTimerOnTheDot();
 
 // Function to fetch and update weather data
 function updateWeather() {
-    fetch('/weather_data')
+    const qs = window.location.search || '';
+    const weatherUrl = qs ? `/weather_data${qs}` : '/weather_data';
+    fetch(weatherUrl)
         .then(response => response.json())
         .then(data => {
             if (!data.error) {

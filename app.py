@@ -67,9 +67,10 @@ def index():
 # New route to serve weather data as JSON
 @app.route('/weather_data')
 def weather_data():
-    weather_data = get_weather_data()
-    if weather_data:
-        return jsonify(weather_data)
+    station_query = request.args.get('station')
+    payload = get_weather_data(station_query)
+    if payload:
+        return jsonify(payload)
     else:
         return jsonify({'error': 'Could not retrieve weather data'}), 500
 
@@ -572,7 +573,7 @@ def image_push():
         except Exception as exc:
             print(f"Canteen prefetch failed: {exc}")
     try:
-        get_weather_data()
+        get_weather_data(forward_params['station'])
     except Exception as exc:
         print(f"Weather prefetch failed: {exc}")
     # Build loopback dashboard URL (avoid Heroku router latency for internal render)
