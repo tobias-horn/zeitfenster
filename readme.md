@@ -1,5 +1,7 @@
 # ZEITFENSTER v2
 
+![ZEITFENSTER on Kindle](./zeitfensterKindle.jpeg)
+
 > A calm, monochrome dashboard for people who love tidy status boards, not cluttered tabs.
 
 ## Table of Contents
