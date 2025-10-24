@@ -189,6 +189,13 @@ em { color: #555; }
 .actions { margin-top: 12px; }
 .actions button { border: 1px solid #000; background: #fff; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
 .actions button:hover { background: #f2f2f2; }
+.final-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.final-actions .secondary-action { background: #fff; color: #000; }
+.final-actions .secondary-action:hover { background: #f7f7f7; }
+.final-actions .primary-action { background: #000; color: #fff; }
+.final-actions .primary-action:hover { background: #222; color: #fff; }
+.link-action { margin-top: 8px; border: none; background: transparent; padding: 0; color: #000; text-decoration: underline; cursor: pointer; }
+.link-action:hover { text-decoration: none; }
 
 
 

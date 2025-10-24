@@ -75,10 +75,12 @@
       <div style="margin-top:10px;">
         <label><input type="checkbox" id="show-prices" checked /> Show prices</label>
       </div>
-      <div class="actions">
-        <button id="back-from-3">Back</button>
-        <button id="finish-setup">Finish</button>
+      <div class="actions final-actions">
+        <button type="button" class="secondary-action" id="image-horizontal">Image Endpoint (Horizontal)</button>
+        <button type="button" class="secondary-action" id="image-vertical">Image Endpoint (Vertical)</button>
+        <button type="button" class="primary-action" id="finish-setup">Take me to the dashboard</button>
       </div>
+      <button type="button" class="link-action" id="back-from-3">Back</button>
     </div>
   </div>
 </div>
@@ -166,17 +168,40 @@
     setStep(3);
   });
 
-  document.getElementById('finish-setup').addEventListener('click', () => {
+  function buildFinalParams() {
     const usp = new URLSearchParams(window.location.search);
     const canteen = canteenSelect.value;
     const showPrices = document.getElementById('show-prices').checked;
     if (!canteen) {
       alert('Please select a canteen');
-      return;
+      return null;
     }
     usp.set('canteen', canteen);
     usp.set('show_prices', showPrices ? '1' : '0');
-    window.location.href = `/?${usp.toString()}`;
+    return usp;
+  }
+
+  document.getElementById('finish-setup').addEventListener('click', () => {
+    const params = buildFinalParams();
+    if (!params) return;
+    window.location.href = `/?${params.toString()}`;
   });
+
+  function openImageEndpoint(orientation) {
+    const params = buildFinalParams();
+    if (!params) return;
+    const imageUrl = new URL('{{ url_for("image_push") }}', window.location.origin);
+    params.forEach((value, key) => {
+      imageUrl.searchParams.set(key, value);
+    });
+    imageUrl.searchParams.set('orientation', orientation);
+    const win = window.open(imageUrl.toString(), '_blank');
+    if (win) {
+      win.opener = null;
+    }
+  }
+
+  document.getElementById('image-horizontal').addEventListener('click', () => openImageEndpoint('landscape'));
+  document.getElementById('image-vertical').addEventListener('click', () => openImageEndpoint('portrait'));
 </script>
 {% endblock %}
