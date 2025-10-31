@@ -548,6 +548,11 @@ def image_push():
     if orientation not in ('landscape', 'portrait'):
         orientation = 'landscape'
     width, height = KINDLE_LANDSCAPE if orientation == 'landscape' else KINDLE_PORTRAIT
+    rotate_param = (request.args.get('rotate180') or '').strip().lower()
+    if rotate_param:
+        rotate_180 = rotate_param not in ('0', 'false', 'no', 'off')
+    else:
+        rotate_180 = True
     # Optional scale control: support both ?scale= and ?zoom=
     zoom_param = request.args.get('scale') or request.args.get('zoom')
     zoom = None
@@ -582,7 +587,7 @@ def image_push():
     dash_url = base_url + url_for('index') + '?' + urlencode(forward_params)
 
     # Cache key per URL, viewport, and zoom
-    cache_key = f"{dash_url}|{width}x{height}|scale={zoom if zoom is not None else 'none'}"
+    cache_key = f"{dash_url}|{width}x{height}|scale={zoom if zoom is not None else 'none'}|rotate180={'1' if rotate_180 else '0'}"
     now_ts = int(datetime.datetime.now().timestamp())
     # Optional cache bypass via ?cache=0
     cache_param = (request.args.get('cache') or '').lower()
@@ -609,17 +614,28 @@ def image_push():
                 resp = make_response("Render failed", 500)
             resp.headers['Content-Type'] = 'text/plain; charset=utf-8'
             return resp
-        # Rotate landscape content so delivered image is portrait
-        if orientation == 'landscape' and Image is not None and img:
+        # Apply rotation for orientation and optional 180° flip (requires Pillow)
+        if Image is not None and img:
             try:
                 from io import BytesIO
                 im = Image.open(BytesIO(img))
-                im = im.rotate(90, expand=True)
+                angle = 0
+                if orientation == 'landscape':
+                    angle += 90
+                if rotate_180:
+                    angle += 180
+                angle %= 360
+                needs_save = False
+                if angle:
+                    im = im.rotate(angle, expand=True)
+                    needs_save = True
                 if im.mode != 'L':
                     im = im.convert('L')
-                out = BytesIO()
-                im.save(out, format='PNG', optimize=True)
-                img = out.getvalue()
+                    needs_save = True
+                if needs_save:
+                    out = BytesIO()
+                    im.save(out, format='PNG', optimize=True)
+                    img = out.getvalue()
             except Exception:
                 pass
         _IMG_CACHE.update({'key': cache_key, 'ts': now_ts, 'img': img})

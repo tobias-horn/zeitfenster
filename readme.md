@@ -120,6 +120,7 @@ Missing `station` or `canteen` automatically triggers the setup wizard.
 - Route: `/image-push.png`
 - Recognized parameters (in addition to the dashboard ones above):
   - `orientation`: `portrait` (600x800) or `landscape` (renders landscape, rotates to portrait delivery).
+  - `rotate180`: defaults to `1` to flip the delivered image by 180° (handy for upside-down mounts); set to `0`, `false`, or `no` to keep the original orientation.
   - `scale` or `zoom`: float between 0.5 and 1.5 to control virtual viewport size.
   - `cache`: set to `0` to bypass the 30-second in-memory cache.
   - `token`: required if `IMAGE_PUSH_TOKEN` is set.
