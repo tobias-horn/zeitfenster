@@ -417,7 +417,7 @@ def _render_dashboard_png(
             except Exception:
                 pass
             _check_budget()
-            # Remove emojis from text nodes for the image route only
+            # Remove dish badges (emojis/text) for the image route only
             try:
                 page.evaluate(
                     """
@@ -439,6 +439,10 @@ def _render_dashboard_png(
                         var hasText = !!(el.textContent && el.textContent.trim());
                         var hasChildren = el.children && el.children.length > 0;
                         if (!hasText && !hasChildren) { el.style.display = 'none'; }
+                      });
+                      // Hide dish-type spans entirely (avoids textual badges like "Vegan")
+                      Array.from(document.querySelectorAll('.dish-box > span:first-of-type')).forEach(function(el){
+                        el.style.display = 'none';
                       });
                     })();
                     """
